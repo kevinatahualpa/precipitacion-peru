@@ -227,12 +227,20 @@ canvas{display:block;width:100%}
 .poster.static .arrow .dot{display:none}
 
 /* responsive */
-@media (max-width:1239px){
+@media (max-width:1099px){
   .flow{grid-template-columns:1fr;row-gap:0;padding:16px 14px 10px}
   .flow>*{grid-column:auto!important}
   .arrow,.arrow.down{display:grid;width:40px;height:30px;margin:6px auto}
   .arrow .shape{transform:rotate(90deg)}
   .zbody{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;align-content:start}
+  /* ETL y RAW DATA deben permanecer ordenados en una sola columna en tablet
+     para evitar que el título "PROCESOS APLICADOS" quede separado de sus ítems. */
+  .zone[aria-label="Preprocesamiento"] .zbody,
+  .zone[aria-label="Recolección de datos"] .zbody{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
   .models{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));grid-column:1/-1}
   .zone-e{margin-top:0}
   .cl{grid-template-columns:1fr}
@@ -241,13 +249,92 @@ canvas{display:block;width:100%}
   .foot{padding:4px 14px 14px}
 }
 @media (max-width:640px){
-  .wrap{padding:6px}
-  .zbody{grid-template-columns:1fr}
-  .inst{flex-direction:column;gap:8px;font-size:11px}
-  .zhead{font-size:11px}
-  .band{font-size:9.5px}
-  .cl li{padding:13px 15px}
+  .wrap{padding:5px}
+  .zbody{grid-template-columns:1fr;gap:8px;padding:9px 8px 10px}
+  .inst{flex-direction:column;gap:7px;font-size:10px}
+  .zhead{font-size:10px;padding:8px 7px 8px 0}
+  .band{font-size:8.5px}
+  .cl li{padding:11px 12px;font-size:11px}
+
+  /* RAW DATA compacto en teléfono */
+  .zbody.z1{gap:8px}
+  .zbody.z1 .photo svg{height:128px;width:100%;}
+  .zbody.z1 .logo-sen{width:50px;height:50px;left:7px;top:7px;font-size:7.5px}
+  .zbody.z1 .srcbar{padding:6px 7px;font-size:10px}
+  .zbody.z1 .srcbar span{font-size:8.5px}
+  .zbody.z1 .kv{font-size:8.5px}
+  .zbody.z1 .kv th,.zbody.z1 .kv td{padding:5px 6px}
+  .zbody.z1 .mapA{height:285px;width:100%;}
 }
+
+@media (max-width:380px){
+  .zbody.z1 .photo svg{height:115px}
+  .zbody.z1 .mapA{height:245px}
+  .zbody.z1 .kv{font-size:8px}
+}
+
+/* ───────── ESCRITORIO · LANDSCAPE ───────── */
+@media (min-width:1100px){
+  .poster{max-width:1560px}
+  .flow{
+    grid-template-columns:1.05fr 22px 1fr 22px 1.15fr 22px 1fr 22px .95fr;
+    column-gap:6px;
+    row-gap:0;
+    padding:14px 14px 10px;
+  }
+  .flow>.zone-e{grid-column:auto}
+  .arrow{display:grid;width:22px;height:32px;margin:0;align-self:center;justify-self:center}
+  .arrow.down{display:none}
+  .arrow .shape{width:22px;height:32px}
+  .zbody{gap:8px;padding:10px 9px 11px}
+  .zhead{font-size:11.5px;padding:8px 8px 8px 0}
+  .zhead::before{width:7px;margin-right:9px}
+  .panel{padding:8px}
+  .panel h3{font-size:9.5px;margin-bottom:6px}
+  .panel h3 small{font-size:8px;margin-left:4px}
+  .srcbar{padding:6px 7px;font-size:10.5px}
+  .srcbar span{font-size:9px}
+  .kv{font-size:9px}
+  .kv th,.kv td{padding:5px 6px}
+  .photo{border-radius:7px}
+  .logo-sen{left:7px;top:7px;width:52px;height:52px;font-size:8px}
+  .mapA{border-radius:7px}
+  .cleanrow{grid-template-columns:1fr 18px 1fr;gap:4px}
+  .cleanrow .lab{font-size:8px;margin-bottom:4px}
+  .legrow{grid-template-columns:1fr 1fr;gap:4px;font-size:7.5px;margin-top:7px}
+  .legrow i{width:9px;height:9px}
+  .statbox{padding:7px}
+  .sb b{font-size:10px}
+  .sb span{font-size:7.5px}
+  .sarrow{width:18px;height:18px}
+  .proc{gap:4px}
+  .pr{gap:7px;padding:6px 7px;font-size:8.5px}
+  .pr svg{width:18px;height:18px}
+  .tt{padding:7px 8px;gap:7px;font-size:8.5px}
+  .tt svg{width:22px;height:22px}
+  .tt div{gap:2px 6px}
+  .models{gap:8px 6px;padding-top:2px}
+  .model{border-radius:9px;padding:7px}
+  .model.win{padding:6px}
+  .model h3{font-size:9px;margin-bottom:2px}
+  .model .ill{margin:1px 0 5px}
+  .badge{font-size:7px;padding:2px 6px;top:-8px;right:5px}
+  .rmse-t{font-size:7px;margin-bottom:3px}
+  .rm{grid-template-columns:55px 1fr 29px;gap:3px;font-size:7px}
+  .rn{font-size:6.8px}
+  .rv{font-size:7px}
+  .rt{height:6px}
+  #scatter{height:142px}
+  .mrow{grid-template-columns:28px 1fr auto;gap:2px 5px;padding:5px 1px;font-size:8px}
+  .mrow .v{font-size:9px}
+  .mrow .rl{font-size:7px}
+  .ok{font-size:7px;padding:2px 5px}
+  .verdict{margin-top:6px;padding:5px 6px;font-size:8px}
+  .cl li{gap:7px;padding:10px 10px;font-size:9px;line-height:1.3}
+  .sq{width:11px;height:11px}
+  .foot{padding:3px 16px 10px;font-size:8px}
+}
+
 @media (prefers-reduced-motion:reduce){
   .arrow .dot,.signal,.badge{animation:none!important}
 }
