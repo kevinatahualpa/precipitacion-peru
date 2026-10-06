@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SYSTEM FLOW MAP · PRECIPITACIÓN PERÚ OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#080F1C; --panel:#111827; --panel-2:#1E293B; --panel-3:#0B1322;
+  --text:#E2E8F0; --text-2:#94A3B8; --text-3:#64748B;
+  --accent:#F97316; --accent-2:#FB923C; --accent-soft:rgba(249,115,22,.13);
+  --ok:#22C55E; --ok-soft:rgba(34,197,94,.13);
+  --line:#223046; --line-2:#334155;
+  --mono:'JetBrains Mono','IBM Plex Mono',monospace;
+  --sans:'Inter','Segoe UI',system-ui,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:var(--sans);font-size:14px;line-height:1.45;
+}
+.wrap{padding:12px}
+svg{display:block;width:100%;height:auto}
+canvas{display:block;width:100%}
+.count{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ───────── TARJETA PRINCIPAL ───────── */
+.poster{
+  max-width:1560px;margin:0 auto;background:var(--panel-3);
+  border:1px solid var(--line);border-radius:16px;overflow:hidden;
+}
+
+/* cabecera */
+.head{padding:20px 30px 6px;text-align:center}
+.inst{display:flex;align-items:center;justify-content:center;gap:14px;font-size:13.5px;color:var(--text-2);font-family:var(--mono)}
+.logo{
+  flex:none;width:48px;height:48px;border-radius:50%;background:var(--panel-2);color:var(--accent-2);
+  display:grid;place-items:center;font-weight:800;font-size:14px;font-family:var(--mono);
+  border:2px solid var(--accent);
+}
+.head h1{margin:12px 0 0;font-size:clamp(20px,4.6vw,32px);line-height:1.15;font-weight:800;letter-spacing:-.02em}
+.head h1 span{display:block}
+.head h1 .o{color:var(--accent)}
+.term-line{margin-top:12px;font-family:var(--mono);font-size:11.5px;color:var(--text-3);letter-spacing:.04em}
+.term-line .p{color:var(--ok)}
+.term-line .acc{color:var(--accent-2)}
+
+/* ───────── FLUJO DE ZONAS ───────── */
+.flow{
+  display:grid;
+  grid-template-columns:1.12fr 30px 1.02fr 30px 1.45fr 30px 1.18fr;
+  column-gap:8px;row-gap:12px;padding:18px 22px 12px;align-items:stretch;
+}
+.flow>.zone-e{grid-column:1/-1}
+
+/* zonas tipo ventana de terminal */
+.zone{
+  position:relative;display:grid;grid-template-columns:34px minmax(0,1fr);
+  background:var(--panel);border:1px solid var(--line-2);border-radius:12px;overflow:hidden;
+  opacity:0;clip-path:inset(0 100% 0 0);
+  transition:opacity .6s ease,clip-path 1s cubic-bezier(.4,0,.2,1);
+}
+.zone.on{opacity:1;clip-path:inset(0 0 0 0)}
+.band{
+  background:#0A1120;color:var(--accent);display:flex;align-items:center;justify-content:center;
+  writing-mode:vertical-rl;transform:rotate(180deg);
+  font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.12em;padding:12px 0;
+  border-right:1px solid var(--line);
+}
+.main{display:flex;flex-direction:column;min-width:0}
+.zhead{
+  margin:0;display:flex;align-items:center;gap:0;background:var(--panel-2);color:var(--text);
+  font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.1em;padding:10px 12px 10px 0;
+}
+.zhead::before{content:"";align-self:stretch;width:8px;background:var(--accent);margin-right:12px;flex:none}
+.zbody{display:flex;flex-direction:column;gap:11px;padding:13px 13px 15px;flex:1;min-height:0}
+.panel{background:#0E1729;border:1px solid var(--line);border-radius:8px;padding:10px}
+.panel h3{margin:0 0 8px;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.12em;color:var(--text-2)}
+.panel h3 small{font-weight:500;font-size:9.5px;color:var(--text-3);letter-spacing:.04em;margin-left:6px}
+.strip{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.1em;color:var(--text-2)}
+
+/* flechas con datos fluyendo */
+.arrow{align-self:center;justify-self:center;width:30px;height:40px;display:grid;place-items:center;opacity:0;transition:opacity .6s ease}
+.arrow.on{opacity:1}
+.arrow .shape{
+  position:relative;display:block;width:30px;height:40px;background:var(--accent);overflow:hidden;
+  clip-path:polygon(0 30%,52% 30%,52% 0,100% 50%,52% 100%,52% 70%,0 70%);
+}
+.arrow .dot{
+  position:absolute;top:50%;left:-8px;width:6px;height:6px;margin-top:-3px;border-radius:50%;
+  background:#0A1120;animation:flow 1.5s linear infinite;
+}
+.arrow .dot:nth-child(2){animation-delay:.5s}
+.arrow .dot:nth-child(3){animation-delay:1s}
+@keyframes flow{from{transform:translateX(0)}to{transform:translateX(40px)}}
+.arrow.down{display:none;grid-column:7}
+
+/* ───────── ZONA A ───────── */
+.photo{position:relative;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+.logo-sen{
+  position:absolute;left:10px;top:10px;width:66px;height:66px;border-radius:50%;background:#0A1120;
+  border:2px solid var(--accent);color:var(--accent-2);display:grid;place-items:center;
+  font-family:var(--mono);font-size:9.5px;font-weight:800;
+}
+.signal{animation:dash 1.3s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-16}}
+.srcbar{background:var(--accent-soft);border:1px solid rgba(249,115,22,.4);border-radius:8px;padding:8px 10px;text-align:center;font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.08em;color:var(--accent-2)}
+.srcbar span{font-weight:500;font-size:11px;color:var(--text-2)}
+.kv{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;font-family:var(--mono);font-size:11px;background:#0E1729}
+.kv th,.kv td{padding:6px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.kv th{font-weight:600;color:var(--text-2);width:38%;white-space:nowrap;letter-spacing:.06em}
+.kv td{font-weight:500;color:var(--text)}
+.kv tr:last-child td{border-bottom:0}
+.kv .full b{color:var(--accent-2);font-weight:700}
+.mapA{background:#0A1120;border:1px solid var(--line);border-radius:8px}
+.gd{fill:var(--accent);opacity:0}
+.zone.on .gd{opacity:.95;transition:opacity .45s ease var(--d)}
+.maplab{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.08em;fill:var(--text-3)}
+.mapleg{font-family:var(--mono);font-size:9.5px;fill:var(--text-2);font-weight:500}
+
+/* ───────── ZONA B ───────── */
+.cleanrow{display:grid;grid-template-columns:1fr 22px 1fr;gap:6px;align-items:center}
+.cleanrow .lab{display:block;font-family:var(--mono);font-size:9.5px;font-weight:700;text-align:center;margin-bottom:5px;letter-spacing:.08em;color:var(--text-2)}
+.g{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.g .c{aspect-ratio:1;border-radius:2px;background:var(--accent)}
+.zone.on .go .c.s{background:var(--line-2);transition:background .5s ease var(--d)}
+.zone.on .gc .c.s{background:#0E1729;box-shadow:inset 0 0 0 1px var(--line-2);transition:background .5s ease var(--e),box-shadow .5s ease var(--e)}
+.carrow{width:22px;height:22px}
+.legrow{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px;font-family:var(--mono);font-size:9px;color:var(--text-2);line-height:1.3}
+.legrow span{display:flex;align-items:flex-start;gap:6px}
+.legrow i{flex:none;width:11px;height:11px;border-radius:2px;margin-top:1px}
+.statbox{background:var(--accent-soft);border:1px solid rgba(249,115,22,.4);border-radius:8px;padding:10px;display:flex;align-items:center;justify-content:space-between;gap:6px}
+.sb{display:flex;flex-direction:column;align-items:center;text-align:center;line-height:1.15;min-width:0;flex:1 1 0}
+.sb b{font-family:var(--mono);font-size:clamp(10px,1.05vw,14px);font-weight:800;color:var(--text);white-space:nowrap;letter-spacing:-.01em}
+.sb span{font-family:var(--mono);font-size:9px;color:var(--text-2);margin-top:3px;line-height:1.3;overflow-wrap:anywhere}
+.sb span .nb{font-style:normal;white-space:nowrap}
+.sarrow{flex:none;width:22px;height:22px}
+.proc{display:flex;flex-direction:column;gap:6px}
+.pr{display:flex;align-items:center;gap:11px;background:#0E1729;border:1px solid var(--line);border-radius:8px;padding:8px 11px;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.05em;color:var(--text);opacity:0;transition:opacity .6s ease var(--d)}
+.zone.on .pr{opacity:1}
+.pr svg{flex:none;width:22px;height:22px;color:var(--accent)}
+.tt{border:1px dashed var(--line-2);border-radius:8px;padding:10px 12px;display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:11px}
+.tt svg{flex:none;width:30px;height:30px;color:var(--accent)}
+.tt div{display:grid;grid-template-columns:auto 1fr;gap:3px 10px}
+.tt .k{font-weight:600;color:var(--text-2)}
+.tt .v{font-weight:800;color:var(--accent-2);font-variant-numeric:tabular-nums}
+
+/* ───────── ZONA C ───────── */
+.models{display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:16px 10px;flex:1;padding-top:6px}
+.model{position:relative;border:1px solid var(--line-2);border-radius:11px;padding:10px;background:#0E1729;display:flex;flex-direction:column}
+.model.win{border:2px solid var(--accent);padding:9px;box-shadow:0 0 26px rgba(249,115,22,.25)}
+.model h3{margin:0 0 4px;text-align:center;font-family:var(--mono);font-size:11.5px;font-weight:800;letter-spacing:.06em;line-height:1.25}
+.model .ill{margin:2px 0 8px}
+.badge{
+  position:absolute;top:-11px;right:8px;background:var(--accent);color:#0A1120;
+  border-radius:999px;font-family:var(--mono);font-size:9px;font-weight:800;
+  letter-spacing:.12em;padding:3px 10px;line-height:1.3;
+  opacity:0;transform:scale(.9);transition:opacity .5s ease 2s,transform .5s ease 2s;
+}
+.zone.on .badge{opacity:1;transform:none;animation:pulse 2.4s ease-in-out 2.6s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(249,115,22,0)}50%{box-shadow:0 0 0 7px rgba(249,115,22,.3)}}
+.rmse-t{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.1em;margin:auto 0 4px;color:var(--text-3)}
+.rm{display:grid;grid-template-columns:72px 1fr 34px;gap:5px;align-items:center;font-family:var(--mono);font-size:9px;line-height:1.1;margin-top:3px}
+.rn{color:var(--text-3);font-weight:500;white-space:nowrap;font-size:8.5px}
+.rt{height:8px;background:var(--line);border-radius:4px;overflow:hidden}
+.rf{display:block;height:100%;width:0;border-radius:4px;background:var(--line-2)}
+.rm.me .rf{background:var(--accent)}
+.rm.me .rn,.rm.me .rv{font-weight:800;color:var(--text)}
+.zone.on .rf{width:var(--w);transition:width 1.3s cubic-bezier(.3,.7,.2,1) var(--d)}
+.rv{text-align:right;font-weight:600;color:var(--text-2)}
+.ip,.nd{opacity:0}
+.zone.on .ip,.zone.on .nd{opacity:1;transition:opacity .4s ease var(--d)}
+.il{opacity:0}
+.zone.on .il{opacity:1;transition:opacity .6s ease var(--d)}
+
+/* ───────── ZONA D ───────── */
+#scatter{height:186px}
+.mt{display:flex;flex-direction:column;gap:0;margin-top:6px}
+.mrow{display:grid;grid-template-columns:42px 1fr auto;grid-template-areas:"m v ok" "rl rl rl";gap:2px 8px;align-items:center;padding:6px 2px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:11px;opacity:0;transition:opacity .5s ease var(--d)}
+.zone.on .mrow{opacity:1}
+.mrow:last-child{border-bottom:0}
+.mrow .m{grid-area:m;font-weight:700;color:var(--text-2)}
+.mrow .v{grid-area:v;font-weight:800;font-size:12px;color:var(--text)}
+.mrow .ok{grid-area:ok}
+.mrow .rl{grid-area:rl;font-family:var(--mono);font-size:9px;color:var(--text-3);line-height:1.25}
+.mrow .rl b{color:var(--text-2);font-weight:700}
+.ok{background:var(--ok-soft);color:var(--ok);font-family:var(--mono);font-size:9.5px;font-weight:800;letter-spacing:.08em;border:1px solid rgba(34,197,94,.45);border-radius:6px;padding:3px 9px}
+.verdict{
+  margin-top:8px;background:var(--accent-soft);border:1px solid rgba(249,115,22,.45);border-radius:8px;
+  padding:7px 10px;font-family:var(--mono);font-size:10.5px;font-weight:700;letter-spacing:.06em;
+  color:var(--accent-2);text-align:center;opacity:0;transition:opacity .5s ease 1.8s;
+}
+.zone.on .verdict{opacity:1}
+
+/* ───────── ZONA E ───────── */
+.zone-e{margin-top:2px;grid-template-columns:34px minmax(0,1fr)}
+.cl{display:grid;grid-template-columns:repeat(3,1fr);list-style:none;margin:0;padding:0}
+.cl li{display:flex;gap:11px;align-items:flex-start;padding:15px 20px;font-size:13px;line-height:1.45;font-weight:500;opacity:0;transition:opacity .6s ease var(--d)}
+.cl li+li{border-left:1px solid var(--line)}
+.zone-e.on .cl li{opacity:1}
+.sq{flex:none;width:16px;height:16px;border-radius:3px;background:var(--accent);margin-top:2px}
+.cl b{font-family:var(--mono);color:var(--accent-2);font-weight:700}
+
+/* pie */
+.foot{padding:4px 28px 16px;font-family:var(--mono);font-size:10px;color:var(--text-3);text-align:right;letter-spacing:.04em}
+
+/* controles */
+.ctl{max-width:1560px;margin:10px auto 0;display:flex;justify-content:flex-end;gap:8px}
+.ctl button{
+  font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.1em;color:var(--text);
+  background:var(--panel);border:1px solid var(--line-2);border-radius:8px;padding:8px 14px;cursor:pointer;
+}
+.ctl button:hover{border-color:var(--accent);color:var(--accent-2)}
+
+/* estados */
+.flow.instant,.flow.instant *{transition:none!important}
+.flow.fading .zone,.flow.fading .arrow{opacity:0!important;transition:opacity .55s ease!important}
+.poster.static *{transition:none!important;animation:none!important}
+.poster.static .arrow .dot{display:none}
+
+/* responsive */
+@media (max-width:1239px){
+  .flow{grid-template-columns:1fr;row-gap:0;padding:16px 14px 10px}
+  .flow>*{grid-column:auto!important}
+  .arrow,.arrow.down{display:grid;width:40px;height:30px;margin:6px auto}
+  .arrow .shape{transform:rotate(90deg)}
+  .zbody{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;align-content:start}
+  .models{grid-template-columns:repeat(auto-fit,minmax(190px,1fr));grid-column:1/-1}
+  .zone-e{margin-top:0}
+  .cl{grid-template-columns:1fr}
+  .cl li+li{border-left:0;border-top:1px solid var(--line)}
+  .head{padding:16px 14px 4px}
+  .foot{padding:4px 14px 14px}
+}
+@media (max-width:640px){
+  .wrap{padding:6px}
+  .zbody{grid-template-columns:1fr}
+  .inst{flex-direction:column;gap:8px;font-size:11px}
+  .zhead{font-size:11px}
+  .band{font-size:9.5px}
+  .cl li{padding:13px 15px}
+}
+@media (prefers-reduced-motion:reduce){
+  .arrow .dot,.signal,.badge{animation:none!important}
+}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <article class="poster" id="poster" aria-label="Infografía animada del flujo de la investigación">
+
+    <header class="head">
+      <div class="inst">
+        <div class="logo" role="img" aria-label="Siglas UCV">UCV</div>
+        <span>Facultad de Ingeniería y Arquitectura · Escuela Profesional de Ingeniería de Sistemas · Sede Lima Este · 2026</span>
+      </div>
+      <h1><span>Comparación de algoritmos de regresión de aprendizaje supervisado</span><span class="o">para la predicción de la precipitación mensual en el Perú</span></h1>
+      <div class="term-line">FLUJO COMPLETO DE LA INVESTIGACIÓN · dataset PISCOp_v3.0 ·
+        modelos: Regresión Ridge · Regresión KNN · Random Forest · XGBoost · bucle activo</div>
+    </header>
+
+    <div class="flow" id="flow">
+
+      <!-- ZONA A -->
+      <section class="zone" data-zone aria-label="Recolección de datos">
+        <div class="band">01 · RAW DATA</div>
+        <div class="main">
+          <h2 class="zhead">RECOLECCIÓN DE DATOS</h2>
+          <div class="zbody">
+            <div class="photo">
+              <svg viewBox="0 0 260 140" role="img" aria-label="Ilustración de un satélite y una estación pluviométrica">
+                <rect width="260" height="140" fill="#0E1729"/>
+                <path d="M0 112L44 80L74 100L108 70L150 108L196 84L260 112V140H0Z" fill="#223046"/>
+                <rect y="116" width="260" height="24" fill="#1E293B"/>
+                <g transform="translate(222 28) rotate(-28)">
+                  <rect x="-10" y="-8" width="20" height="16" rx="2" fill="#94A3B8"/>
+                  <rect x="-36" y="-6" width="22" height="12" fill="#FB923C" stroke="#94A3B8" stroke-width="1.5"/>
+                  <rect x="14" y="-6" width="22" height="12" fill="#FB923C" stroke="#94A3B8" stroke-width="1.5"/>
+                  <path d="M-29 -6V6M-22 -6V6M22 -6V6M29 -6V6" stroke="#94A3B8" stroke-width="1"/>
+                  <circle cx="0" cy="11" r="3" fill="#F97316"/>
+                </g>
+                <path class="signal" d="M202 40C188 46 176 54 162 64" fill="none" stroke="#F97316" stroke-width="2" stroke-linecap="round" stroke-dasharray="3 5"/>
+                <path d="M156 120V62" stroke="#94A3B8" stroke-width="3"/>
+                <path d="M140 72H172" stroke="#94A3B8" stroke-width="3" stroke-linecap="round"/>
+                <rect x="144" y="48" width="26" height="12" rx="1.5" fill="#E2E8F0" transform="rotate(-12 157 54)"/>
+                <circle cx="156" cy="64" r="4" fill="#F97316"/>
+                <path d="M144 120L156 106L168 120" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linejoin="round"/>
+                <path d="M206 74v6M216 68v6M226 76v6" stroke="#FB923C" stroke-width="2" stroke-linecap="round"/>
+                <path d="M196 92H228L222 104H202Z" fill="#E2E8F0" stroke="#94A3B8" stroke-width="2" stroke-linejoin="round"/>
+                <rect x="202" y="104" width="20" height="16" fill="#E2E8F0" stroke="#94A3B8" stroke-width="2"/>
+                <rect x="204" y="112" width="16" height="6" fill="#FB923C"/>
+              </svg>
+              <div class="logo-sen" role="img" aria-label="Siglas SENAMHI">SENAMHI</div>
+            </div>
+
+            <div class="srcbar">PISCOp v3.0 <span>(SENAMHI)</span></div>
+
+            <table class="kv">
+              <tr><th scope="row">PERIODO</th><td>1981–2025 (45 años)<br>540 meses</td></tr>
+              <tr><th scope="row">MALLA</th><td>210 × 174 celdas</td></tr>
+              <tr><th scope="row">RESOLUCIÓN</th><td>0,1° (≈ 10 km)</td></tr>
+              <tr><td colspan="2" class="full"><b>19 731 600</b> registros celda-mes</td></tr>
+            </table>
+
+            <svg class="mapA" id="mapA" viewBox="0 0 290 296" role="img" aria-label="Mapa del Perú con la malla de puntos"></svg>
+          </div>
+        </div>
+      </section>
+
+      <div class="arrow" data-arrow aria-hidden="true"><i class="shape"><b class="dot"></b><b class="dot"></b><b class="dot"></b></i></div>
+
+      <!-- ZONA B -->
+      <section class="zone" data-zone aria-label="Preprocesamiento">
+        <div class="band">02 · CLEANING</div>
+        <div class="main">
+          <h2 class="zhead">PREPROCESAMIENTO (ETL)</h2>
+          <div class="zbody">
+            <div class="panel">
+              <h3>Limpieza de centinelas</h3>
+              <div class="cleanrow">
+                <div><span class="lab">RAW RECORDS</span><div class="g go" id="gridO" role="img" aria-label="Registros originales con centinelas"></div></div>
+                <svg class="carrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h10V4l8 8-8 8v-5H3z" fill="#F97316"/></svg>
+                <div><span class="lab">CLEAN RECORDS</span><div class="g gc" id="gridC" role="img" aria-label="Registros depurados"></div></div>
+              </div>
+              <div class="legrow">
+                <span><i style="background:var(--accent)"></i>Dato válido</span>
+                <span><i style="background:var(--accent)"></i>Dato válido</span>
+                <span><i style="background:var(--line-2)"></i>Centinela (sin dato)</span>
+                <span><i style="background:#0E1729;box-shadow:inset 0 0 0 1.5px var(--line-2)"></i>Eliminado</span>
+              </div>
+            </div>
+
+            <div class="statbox">
+              <div class="sb"><b class="count" data-to="19731600" data-delay="300" data-dur="1500">19 731 600</b><span>registros</span></div>
+              <svg class="sarrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h10V4l8 8-8 8v-5H3z" fill="#F97316"/></svg>
+              <div class="sb"><b class="count" data-to="15782040" data-delay="500" data-dur="1500">15 782 040</b><span>válidos <i class="nb">(<span class="count" data-to="79.98" data-dec="2" data-delay="500" data-dur="1500">79,98</span>&nbsp;%)</i></span></div>
+            </div>
+
+            <div class="strip">PROCESOS APLICADOS</div>
+            <div class="proc">
+              <div class="pr" style="--d:.5s">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><circle cx="12" cy="12" r="6.2"/><rect x="10.4" y="1.5" width="3.2" height="4.4" rx="1"/><rect x="10.4" y="18.1" width="3.2" height="4.4" rx="1"/><rect x="1.5" y="10.4" width="4.4" height="3.2" rx="1"/><rect x="18.1" y="10.4" width="4.4" height="3.2" rx="1"/></g><circle cx="12" cy="12" r="2.6" fill="#0E1729"/></svg>
+                Limpieza de centinelas
+              </div>
+              <div class="pr" style="--d:.8s">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><path d="M4 5.5C4 3.6 7.6 2.5 12 2.5s8 1.1 8 3v1.6c0 1.9-3.6 3-8 3s-8-1.1-8-3z"/><path d="M4 9.2c1.4 1.3 4.3 2 8 2s6.6-.7 8-2v3.2c0 1.9-3.6 3-8 3s-8-1.1-8-3z"/><path d="M4 14.6c1.4 1.3 4.3 2 8 2s6.6-.7 8-2v3.9c0 1.9-3.6 3-8 3s-8-1.1-8-3z"/></g></svg>
+                Variables D1 · D2 · D3
+              </div>
+              <div class="pr" style="--d:1.1s">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><rect x="8.5" y="2" width="7" height="6" rx="1.2"/><rect x="1.5" y="16" width="7" height="6" rx="1.2"/><rect x="15.5" y="16" width="7" height="6" rx="1.2"/></g><path d="M12 8v4M5 16v-4h14v4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                Partición train/test
+              </div>
+            </div>
+
+            <div class="tt">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><g fill="currentColor"><path d="M4 5.5C4 3.6 7.6 2.5 12 2.5s8 1.1 8 3v1.6c0 1.9-3.6 3-8 3s-8-1.1-8-3z"/><path d="M4 9.2c1.4 1.3 4.3 2 8 2s6.6-.7 8-2v3.2c0 1.9-3.6 3-8 3s-8-1.1-8-3z"/><path d="M4 14.6c1.4 1.3 4.3 2 8 2s6.6-.7 8-2v3.9c0 1.9-3.6 3-8 3s-8-1.1-8-3z"/></g></svg>
+              <div>
+                <span class="k">TRAIN:</span><span class="v count" data-to="11573496" data-delay="700" data-dur="1400">11 573 496</span>
+                <span class="k">TEST:</span><span class="v count" data-to="3857832" data-delay="700" data-dur="1400">3 857 832</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="arrow" data-arrow aria-hidden="true"><i class="shape"><b class="dot"></b><b class="dot"></b><b class="dot"></b></i></div>
+
+      <!-- ZONA C -->
+      <section class="zone" data-zone aria-label="Modelos de regresión supervisada">
+        <div class="band">03 · TRAIN</div>
+        <div class="main">
+          <h2 class="zhead">MODELOS DE REGRESIÓN SUPERVISADA</h2>
+          <div class="zbody">
+            <div class="models" id="models"></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="arrow" data-arrow aria-hidden="true"><i class="shape"><b class="dot"></b><b class="dot"></b><b class="dot"></b></i></div>
+
+      <!-- ZONA D -->
+      <section class="zone" data-zone aria-label="Resultados">
+        <div class="band">04 · EVAL</div>
+        <div class="main">
+          <h2 class="zhead">RESULTADOS</h2>
+          <div class="zbody">
+            <div class="panel">
+              <h3>Dispersión predicho vs. observado <small>puntos ilustrativos</small></h3>
+              <canvas id="scatter" role="img" aria-label="Dispersión predicho vs observado"></canvas>
+            </div>
+            <div>
+              <div class="strip">MÉTRICAS · REGRESIÓN RIDGE</div>
+              <div class="mt">
+                <div class="mrow" style="--d:1s"><span class="m">MAE</span><span class="v"><span class="count" data-to="48.29" data-dec="2" data-delay="1000" data-dur="1200">48,29</span> mm</span><span class="rl">rel. vs persistencia: <b>0,47</b></span><span class="ok">CUMPLE</span></div>
+                <div class="mrow" style="--d:1.25s"><span class="m">RMSE</span><span class="v"><span class="count" data-to="74.23" data-dec="2" data-delay="1250" data-dur="1200">74,23</span> mm</span><span class="rl">rel. vs persistencia: <b>0,49</b></span><span class="ok">CUMPLE</span></div>
+                <div class="mrow" style="--d:1.5s"><span class="m">R²</span><span class="v"><span class="count" data-to="0.80" data-dec="2" data-delay="1500" data-dur="1200">0,80</span></span><span class="rl">coeficiente de determinación</span><span class="ok">CUMPLE</span></div>
+              </div>
+              <div class="verdict">3 de 3 umbrales de aceptación cumplidos</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="arrow down" data-arrow aria-hidden="true"><i class="shape"><b class="dot"></b><b class="dot"></b><b class="dot"></b></i></div>
+
+      <!-- ZONA E -->
+      <section class="zone zone-e" data-zone aria-label="Conclusiones">
+        <div class="band">05 · REPORT</div>
+        <div class="main">
+          <h2 class="zhead">SYSTEM SUMMARY</h2>
+          <ul class="cl">
+            <li style="--d:.4s"><span class="sq"></span><span><b>Regresión Ridge</b> obtuvo el mejor desempeño (menor RMSE y mayor R²) y superó claramente a la línea base de persistencia</span></li>
+            <li style="--d:.8s"><span class="sq"></span><span>Los <b>4 algoritmos</b> pasaron los umbrales de aceptación</span></li>
+            <li style="--d:1.2s"><span class="sq"></span><span>Proyección <b>2026</b> generada y análisis regional de <b>25 departamentos</b></span></li>
+          </ul>
+        </div>
+      </section>
+    </div>
+
+    <footer class="foot">Datos: PISCOp v3.0 (SENAMHI) · 1981–2025 · 15 782 040 registros válidos · Cifras de la corrida del experimento · Siglas institucionales sin logotipos de terceros</footer>
+  </article>
+
+  <div class="ctl"><button type="button" id="toggle" aria-pressed="false">[ PAUSAR BUCLE ]</button></div>
+</main>
+
+<script>
+(function(){
+'use strict';
+
+/* ═══ DATOS REALES DE LA CORRIDA ═══ */
+var DATOS = {
+  modelos: [
+    { id:'ridge', nombre:'Regresión Ridge', corto:'Ridge',         rmse:74.23, ganador:true },
+    { id:'knn',   nombre:'Regresión KNN',   corto:'KNN',           rmse:79.95 },
+    { id:'rf',    nombre:'Random Forest',   corto:'Random Forest', rmse:75.82 },
+    { id:'xgb',   nombre:'XGBoost',         corto:'XGBoost',       rmse:75.17 }
+  ],
+  rmseEscalaMax: 90,
+  recta: { m:0.78, b:37.90 },
+  ejeMax: 500
+};
+
+var PERU_N = [[0.3713,0.0],[0.3662,0.0045],[0.3746,0.0258],[0.3752,0.0572],[0.3696,0.0723],[0.3006,0.1368],[0.2928,0.1408],[0.2653,0.1425],[0.2199,0.1643],[0.1924,0.1868],[0.1834,0.2103],[0.1531,0.2473],[0.1441,0.2692],[0.1357,0.2782],[0.1239,0.2821],[0.1122,0.2804],[0.0589,0.2372],[0.0538,0.226],[0.0544,0.2142],[0.0488,0.1896],[0.0208,0.2137],[0.0,0.2428],[0.0123,0.2653],[0.014,0.29],[0.028,0.3085],[0.028,0.3163],[0.0168,0.3376],[0.0219,0.3438],[0.0533,0.3545],[0.0875,0.3825],[0.1049,0.4027],[0.1144,0.4285],[0.1441,0.4616],[0.1509,0.484],[0.1649,0.5008],[0.1727,0.5233],[0.1879,0.548],[0.1941,0.5822],[0.2075,0.599],[0.2243,0.6349],[0.2462,0.6579],[0.2529,0.6803],[0.2686,0.7011],[0.2731,0.7207],[0.2743,0.7521],[0.304,0.7925],[0.3444,0.8284],[0.3831,0.8491],[0.3965,0.8598],[0.4184,0.8648],[0.4464,0.8828],[0.4655,0.8884],[0.5149,0.9372],[0.5261,0.9647],[0.5726,1.0],[0.6068,0.9708],[0.6248,0.9635],[0.6472,0.9327],[0.6506,0.9136],[0.636,0.8968],[0.631,0.8856],[0.6388,0.866],[0.6579,0.8536],[0.6697,0.8536],[0.6876,0.8609],[0.6927,0.8575],[0.6876,0.8402],[0.6596,0.811],[0.654,0.7914],[0.6691,0.7594],[0.6769,0.7207],[0.6971,0.6971],[0.7039,0.6736],[0.7039,0.6618],[0.6983,0.65],[0.6747,0.6265],[0.6601,0.604],[0.6147,0.5996],[0.6007,0.5906],[0.5951,0.5754],[0.5951,0.5238],[0.5676,0.5423],[0.548,0.5485],[0.5362,0.5451],[0.5182,0.525],[0.4975,0.5149],[0.4924,0.5087],[0.4835,0.4823],[0.4459,0.442],[0.4347,0.4027],[0.4448,0.3791],[0.4778,0.346],[0.4879,0.3085],[0.5401,0.2524],[0.5676,0.2428],[0.5951,0.2283],[0.6265,0.2271],[0.6669,0.2204],[0.636,0.1868],[0.636,0.1789],[0.6506,0.1481],[0.6354,0.1312],[0.622,0.1256],[0.6068,0.1284],[0.5754,0.1239],[0.544,0.1408],[0.5244,0.1391],[0.4913,0.1082],[0.4818,0.0847],[0.4616,0.0802],[0.4515,0.0723],[0.4425,0.0482],[0.4268,0.0365],[0.4066,0.0067],[0.3948,0.0006]];
+var AR = 0.7039;
+
+var NB = '\u00A0';
+function qa(s,r){ return Array.prototype.slice.call((r||document).querySelectorAll(s)); }
+function fmt(n,dec){
+  dec = dec||0;
+  var s = Math.abs(n).toFixed(dec).split('.');
+  var g = s[0].replace(/\B(?=(\d{3})+(?!\d))/g, NB);
+  return s[1] ? g+','+s[1] : g;
+}
+function rng(seed){
+  return function(){
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    var t = Math.imul(seed ^ seed>>>15, 1|seed);
+    t = t + Math.imul(t ^ t>>>7, 61|t) ^ t;
+    return ((t ^ t>>>14)>>>0)/4294967296;
+  };
+}
+function gauss(r){ var u=0; while(!u) u=r(); var v=r(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+
+var root = document.documentElement;
+function fit(){
+  var z = 1;
+  if(window.innerWidth >= 1240){ z = Math.min(1, (root.clientWidth - 24)/1560); }
+  root.style.setProperty('--z', z.toFixed(4));
+}
+function Z(){ return parseFloat(getComputedStyle(root).getPropertyValue('--z')) || 1; }
+function sizeCanvas(cv){
+  var w = cv.clientWidth || 300, h = cv.clientHeight || 200, k = (window.devicePixelRatio||1)*Z();
+  cv.width = Math.max(1, Math.round(w*k)); cv.height = Math.max(1, Math.round(h*k));
+  var ctx = cv.getContext('2d');
+  ctx.setTransform(cv.width/w, 0, 0, cv.height/h, 0, 0);
+  return { w:w, h:h, ctx:ctx };
+}
+
+/* geometría del contorno */
+function insideN(u,v){
+  var c=false;
+  for(var i=0,j=PERU_N.length-1;i<PERU_N.length;j=i++){
+    var xi=PERU_N[i][0], yi=PERU_N[i][1], xj=PERU_N[j][0], yj=PERU_N[j][1];
+    if(((yi>v)!==(yj>v)) && (u < (xj-xi)*(v-yi)/(yj-yi)+xi)) c=!c;
+  }
+  return c;
+}
+
+/* ZONA A · mapa con la malla */
+(function buildMapA(){
+  var S=258, ox=34, oy=16, step=6.4, dots='', row=0, x, y;
+  var path='M'+PERU_N.map(function(p){ return (ox+p[0]*S).toFixed(1)+' '+(oy+p[1]*S).toFixed(1); }).join('L')+'Z';
+  for(y=oy+3; y<oy+S; y+=step, row++){
+    for(x=ox+3; x<ox+AR*S; x+=step){
+      if(insideN((x-ox)/S,(y-oy)/S)){
+        dots += '<circle class="gd" cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="2.2" style="--d:'+(0.3+row*0.022).toFixed(2)+'s"/>';
+      }
+    }
+  }
+  var labs =
+    '<text class="maplab" x="84" y="30" text-anchor="middle">ECUADOR</text>'+
+    '<text class="maplab" x="192" y="28" text-anchor="middle">COLOMBIA</text>'+
+    '<text class="maplab" x="206" y="118">BRASIL</text>'+
+    '<text class="maplab" x="226" y="232">BOLIVIA</text>'+
+    '<text class="maplab" x="196" y="288">CHILE</text>'+
+    '<text class="maplab" x="8" y="186" font-style="italic" fill="#64748B">OCÉANO</text>'+
+    '<text class="maplab" x="8" y="199" font-style="italic" fill="#64748B">PACÍFICO</text>'+
+    '<path d="M16 244l-5 14l5-4l5 4z" fill="#F97316"/><text x="16" y="240" text-anchor="middle" font-size="9" font-weight="700" fill="#F97316">N</text>'+
+    '<circle cx="14" cy="276" r="4" fill="#F97316"/><text class="mapleg" x="24" y="280">Malla 210 × 174 (Perú)</text>';
+  document.getElementById('mapA').innerHTML =
+    '<path d="'+path+'" fill="none" stroke="#F97316" stroke-opacity=".5" stroke-width="1.2" stroke-linejoin="round"/>'+dots+labs;
+})();
+
+/* ZONA B · cuadrículas de limpieza */
+(function buildGrids(){
+  var r=rng(2026), n=49, bad=10, idx=[], i, o='', c='';
+  for(i=0;i<n;i++) idx.push(i);
+  for(i=n-1;i>0;i--){ var j=Math.floor(r()*(i+1)); var t=idx[i]; idx[i]=idx[j]; idx[j]=t; }
+  var set={}; idx.slice(0,bad).forEach(function(k){ set[k]=1; });
+  for(i=0;i<n;i++){
+    var s = set[i] ? ' s' : '';
+    var st = ' style="--d:'+(0.4+r()*0.7).toFixed(2)+'s;--e:'+(1.3+r()*0.7).toFixed(2)+'s"';
+    o += '<i class="c'+s+'"'+st+'></i>';
+    c += '<i class="c'+s+'"'+st+'></i>';
+  }
+  document.getElementById('gridO').innerHTML=o;
+  document.getElementById('gridC').innerHTML=c;
+})();
+
+/* ZONA C · tarjetas de modelos */
+function treeSvg(cx,y,w,levels,dy,delay){
+  var lines='', nodes='';
+  (function rec(x,yy,ww,l,rootN,depth){
+    var col = rootN ? '#F97316' : (l===0 ? '#FB923C' : '#94A3B8');
+    var rad = rootN ? 4.2 : (l===0 ? 3 : 3.4);
+    if(l>0){
+      [-1,1].forEach(function(s){
+        var nx=x+s*ww/2, ny=yy+dy;
+        lines += '<line x1="'+x.toFixed(1)+'" y1="'+yy+'" x2="'+nx.toFixed(1)+'" y2="'+ny+'"/>';
+        rec(nx,ny,ww/2,l-1,false,depth+1);
+      });
+    }
+    nodes += '<circle class="nd" cx="'+x.toFixed(1)+'" cy="'+yy+'" r="'+rad+'" fill="'+col+'" style="--d:'+(delay+depth*0.14).toFixed(2)+'s"/>';
+  })(cx,y,w,levels,true,0);
+  return '<g stroke="#475569" stroke-width="1.2">'+lines+'</g>'+nodes;
+}
+function illustration(id,ci){
+  var base=0.7+ci*0.12, s='<svg class="ill" viewBox="0 0 170 84" aria-hidden="true">', r=rng(40+ci), i;
+  if(id==='ridge' || id==='knn'){
+    s += '<path d="M10 6V76H164" fill="none" stroke="#475569" stroke-width="1.3"/>';
+    function f(x){ return id==='ridge' ? 66-(x-16)*0.34 : 43-15*Math.sin((x-16)/142*Math.PI*2.3); }
+    for(i=0;i<36;i++){
+      var x=16+r()*142, y=f(x)+gauss(r)*7; y=Math.max(6,Math.min(74,y));
+      s += '<circle class="ip" cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="2" fill="#FB923C" style="--d:'+(base+i*0.02).toFixed(2)+'s"/>';
+    }
+    var d='';
+    for(var xx=16; xx<=158; xx+=3){ d += (xx===16?'M':'L')+xx+' '+f(xx).toFixed(1); }
+    s += '<path class="il" d="'+d+'" fill="none" stroke="#F97316" stroke-width="1.9" stroke-linecap="round" style="--d:'+(base+0.5).toFixed(2)+'s"/>';
+  } else if(id==='rf'){
+    s += treeSvg(44,8,52,3,19,base) + treeSvg(126,8,52,3,19,base+0.1);
+  } else {
+    s += treeSvg(30,10,30,2,22,base);
+    s += '<text class="il" x="66" y="48" text-anchor="middle" font-size="16" font-weight="700" fill="#94A3B8" style="--d:'+(base+.3).toFixed(2)+'s">+</text>';
+    s += '<path class="il" d="M85 38l7 8-7 8-7-8z" fill="#F97316" style="--d:'+(base+.4).toFixed(2)+'s"/>';
+    s += '<text class="il" x="104" y="48" text-anchor="middle" font-size="16" font-weight="700" fill="#94A3B8" style="--d:'+(base+.5).toFixed(2)+'s">+</text>';
+    s += treeSvg(140,10,30,2,22,base+0.2);
+  }
+  return s+'</svg>';
+}
+(function buildModels(){
+  document.getElementById('models').innerHTML = DATOS.modelos.map(function(m,ci){
+    var rows = DATOS.modelos.map(function(o,ri){
+      var w=Math.min(100,o.rmse/DATOS.rmseEscalaMax*100);
+      return '<div class="rm'+(o===m?' me':'')+'"><span class="rn">'+o.corto+'</span>'+
+        '<span class="rt"><i class="rf" style="--w:'+w.toFixed(1)+'%;--d:'+(0.7+ci*0.12+ri*0.07).toFixed(2)+'s"></i></span>'+
+        '<span class="rv">'+fmt(o.rmse,2)+'</span></div>';
+    }).join('');
+    return '<div class="model'+(m.ganador?' win':'')+'">'+(m.ganador?'<span class="badge">BEST MODEL</span>':'')+
+      '<h3>'+m.nombre+'</h3>'+illustration(m.id,ci)+
+      '<div class="rmse-t">RMSE (MM) · MENOR ES MEJOR</div>'+rows+'</div>';
+  }).join('');
+})();
+
+/* ZONA D · dispersión (canvas) */
+var Scatter=(function(){
+  var cv=document.getElementById('scatter'), S=null, cur=1, raf=0, PTS=[];
+  (function gen(){
+    var r=rng(11), n=1300, MAX=DATOS.ejeMax;
+    for(var i=0;i<n;i++){
+      var o=MAX*Math.pow(r(),2.3);
+      var p=DATOS.recta.m*o+DATOS.recta.b+gauss(r)*(14+0.16*o);
+      PTS.push([o,Math.max(1,Math.min(MAX-3,p))]);
+    }
+  })();
+  function draw(p){
+    cur=p; if(!S) return;
+    var ctx=S.ctx, W=S.w, H=S.h, MAX=DATOS.ejeMax, m=DATOS.recta.m, b=DATOS.recta.b;
+    var L=42,R=10,T=8,B=34, FONT='"JetBrains Mono","Consolas",monospace';
+    function sx(v){ return L+v/MAX*(W-L-R); }
+    function sy(v){ return H-B-v/MAX*(H-T-B); }
+    ctx.clearRect(0,0,W,H);
+    ctx.font='500 9.5px '+FONT; ctx.textBaseline='middle'; ctx.lineWidth=1;
+    for(var t=0;t<=MAX;t+=100){
+      ctx.strokeStyle='#223046'; ctx.fillStyle='#64748B';
+      ctx.beginPath(); ctx.moveTo(L,sy(t)); ctx.lineTo(W-R,sy(t)); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(sx(t),T); ctx.lineTo(sx(t),H-B); ctx.stroke();
+      ctx.textAlign='right'; ctx.fillText(t,L-6,sy(t));
+      ctx.textAlign='center'; ctx.fillText(t,sx(t),H-B+11);
+    }
+    ctx.fillStyle='#94A3B8'; ctx.font='600 9.5px '+FONT; ctx.textAlign='center';
+    ctx.fillText('Precipitación observada (mm)',(L+W-R)/2,H-8);
+    ctx.save(); ctx.translate(10,(T+H-B)/2); ctx.rotate(-Math.PI/2); ctx.fillText('Precipitación predicha (mm)',0,0); ctx.restore();
+    var n=Math.floor(PTS.length*Math.min(1,p/0.68)), i;
+    ctx.fillStyle='rgba(251,146,60,.38)';
+    for(i=0;i<n;i++){ ctx.beginPath(); ctx.arc(sx(PTS[i][0]),sy(PTS[i][1]),2,0,6.2832); ctx.fill(); }
+    if(p>0){
+      ctx.setLineDash([5,4]); ctx.strokeStyle='#64748B'; ctx.lineWidth=1.3;
+      ctx.beginPath(); ctx.moveTo(sx(0),sy(0)); ctx.lineTo(sx(MAX),sy(MAX)); ctx.stroke(); ctx.setLineDash([]);
+    }
+    var q=Math.max(0,Math.min(1,(p-0.6)/0.3));
+    if(q>0){
+      var x2=MAX*q;
+      ctx.strokeStyle='#F97316'; ctx.lineWidth=2.4; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(sx(0),sy(b)); ctx.lineTo(sx(x2),sy(m*x2+b)); ctx.stroke();
+    }
+    var a=Math.max(0,Math.min(1,(p-0.85)/0.15));
+    if(a>0){
+      ctx.globalAlpha=a;
+      ctx.fillStyle='rgba(11,19,34,.92)'; ctx.fillRect(L+6,T+4,140,34);
+      ctx.strokeStyle='#F97316'; ctx.lineWidth=2.2; ctx.beginPath(); ctx.moveTo(L+12,T+14); ctx.lineTo(L+30,T+14); ctx.stroke();
+      ctx.setLineDash([4,3]); ctx.strokeStyle='#64748B'; ctx.lineWidth=1.3; ctx.beginPath(); ctx.moveTo(L+12,T+29); ctx.lineTo(L+30,T+29); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle='#E2E8F0'; ctx.textAlign='left'; ctx.font='700 9.5px '+FONT;
+      ctx.fillText('ŷ = '+fmt(m,2)+' · y + '+fmt(b,2),L+36,T+14);
+      ctx.font='600 9.5px '+FONT; ctx.fillText('y = x',L+36,T+29);
+      ctx.globalAlpha=1;
+    }
+  }
+  function resize(){ S=sizeCanvas(cv); draw(cur); }
+  function stop(){ cancelAnimationFrame(raf); }
+  function play(delay){
+    stop();
+    var t0=performance.now()+delay;
+    (function step(now){
+      var p=Math.max(0,Math.min(1,(now-t0)/2400));
+      draw(p);
+      if(p<1) raf=requestAnimationFrame(step);
+    })(performance.now());
+  }
+  return { resize:resize, play:play, stop:stop, reset:function(){ stop(); draw(0); }, finish:function(){ stop(); draw(1); } };
+})();
+
+/* contadores */
+function runCounters(rootEl){
+  qa('.count',rootEl).forEach(function(el){
+    var to=parseFloat(el.dataset.to), dec=+(el.dataset.dec||0), delay=+(el.dataset.delay||300), dur=+(el.dataset.dur||1500);
+    var t0=performance.now()+delay;
+    cancelAnimationFrame(el._raf);
+    (function step(now){
+      var p=Math.min(1,Math.max(0,(now-t0)/dur)), e=1-Math.pow(1-p,3);
+      el.textContent = fmt(to*e,dec);
+      if(p<1) el._raf=requestAnimationFrame(step);
+    })(performance.now());
+  });
+}
+function setCounters(final){
+  qa('.count').forEach(function(el){
+    cancelAnimationFrame(el._raf);
+    el.textContent = fmt(final?parseFloat(el.dataset.to):0, +(el.dataset.dec||0));
+  });
+}
+
+/* línea de tiempo (ciclo de ~8 s, en bucle) */
+var STEP=1200, CYCLE=8000, FADE_AT=7400;
+var poster=document.getElementById('poster'), flow=document.getElementById('flow'), btn=document.getElementById('toggle');
+var zones=qa('[data-zone]'), arrows=qa('[data-arrow]'), timers=[];
+function later(fn,ms){ timers.push(setTimeout(fn,ms)); }
+function clearTimers(){ timers.forEach(clearTimeout); timers=[]; }
+function reset(){
+  flow.classList.add('instant');
+  flow.classList.remove('fading');
+  qa('.on',flow).forEach(function(e){ e.classList.remove('on'); });
+  setCounters(false);
+  Scatter.reset();
+  void flow.offsetWidth;
+  flow.classList.remove('instant');
+}
+function cycle(){
+  reset();
+  zones.forEach(function(z,i){
+    later(function(){
+      z.classList.add('on'); runCounters(z);
+      if(i===3) Scatter.play(450);
+    }, 80+i*STEP);
+    if(i>0) later(function(){ arrows[i-1].classList.add('on'); }, Math.max(0,80+i*STEP-420));
+  });
+  later(function(){ flow.classList.add('fading'); }, FADE_AT);
+  later(cycle, CYCLE);
+}
+function setStatic(on){
+  clearTimers();
+  poster.classList.toggle('static', on);
+  btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  if(on){
+    flow.classList.remove('fading');
+    qa('.zone,.arrow',flow).forEach(function(e){ e.classList.add('on'); });
+    setCounters(true);
+    Scatter.finish();
+    btn.textContent='[ REPRODUCIR BUCLE ]';
+  } else {
+    btn.textContent='[ PAUSAR BUCLE ]';
+    cycle();
+  }
+}
+btn.addEventListener('click', function(){ setStatic(!poster.classList.contains('static')); });
+
+function relayout(){ fit(); Scatter.resize(); }
+window.addEventListener('resize', relayout);
+fit(); Scatter.resize();
+if(document.fonts && document.fonts.ready){ document.fonts.ready.then(function(){ Scatter.resize(); }); }
+
+var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+var params = new URLSearchParams(location.search);
+setStatic(reduce || params.get('static')==='1');
+})();
+</script>
+</body>
+</html>
