@@ -86,6 +86,9 @@ h1,h2,h3,h4{margin:0;line-height:1.15;letter-spacing:-.015em}
   max-width:1220px;margin:0 auto 34px;background:var(--panel);
   border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;
 }
+/* El módulo 08 necesita el ancho de diseño del flow (1560 px) para que el póster
+   entre casi a tamaño real dentro del OS. */
+#v-flow{max-width:1560px}
 .mod-bar{
   display:flex;align-items:center;gap:12px;padding:11px 18px;
   background:linear-gradient(180deg,#152034,#101a2c);border-bottom:1px solid var(--line);
@@ -446,6 +449,7 @@ table.ficha-tbl td{font-size:11px;padding:8px 10px}
   width:100%;height:860px;border:1px solid var(--line-2);border-radius:12px;background:#0B1322;
 }
 @media(max-width:900px){.info-frame{height:1200px}}
+@media(min-width:1240px){.info-frame{height:1130px}}
 
 /* ───────────────────────── REPORT ─────────────────────────── */
 .summary{display:flex;flex-direction:column;gap:12px}
