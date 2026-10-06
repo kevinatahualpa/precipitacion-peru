@@ -1,9 +1,11 @@
 ﻿Parametro;Valor
-Fuente;PISCOp v1 (SENAMHI) - archivo PISCOp_m.nc
-Periodo;1981-01 a 2025-12 (540 meses)
+Fuente;PISCOp v3.0 (SENAMHI) - archivo PISCOp_m.nc
+Periodo;1981-01 a 2025-12 (540 meses, 45 anios)
 Resolucion;0,1 grado (aprox. 10 km)
+Malla;210 x 174 = 36540 celdas
 Malla total (celda-mes);19731600
 Registros validos;15782040
+Porcentaje valido;79.98 %
 Conjunto de entrenamiento;11573496
 Conjunto de prueba;3857832
 Minimo observado (mm);0.0
