@@ -275,64 +275,15 @@ canvas{display:block;width:100%}
 
 /* ───────── ESCRITORIO · LANDSCAPE ───────── */
 @media (min-width:1100px){
-  .poster{max-width:1560px}
+  /* 4 fases en la fila superior + REPORT a todo el ancho debajo (más espacio, texto legible) */
   .flow{
-    grid-template-columns:1.05fr 22px 1fr 22px 1.15fr 22px 1fr 22px .95fr;
-    column-gap:6px;
-    row-gap:0;
-    padding:14px 14px 10px;
+    grid-template-columns:1.12fr 30px 1.02fr 30px 1.45fr 30px 1.18fr;
+    column-gap:8px;row-gap:12px;padding:18px 22px 12px;
   }
-  .flow>.zone-e{grid-column:auto}
-  .arrow{display:grid;width:22px;height:32px;margin:0;align-self:center;justify-self:center}
+  .flow>.zone-e{grid-column:1/-1}
+  .arrow{width:30px;height:40px;margin:0}
   .arrow.down{display:none}
-  .arrow .shape{width:22px;height:32px}
-  .zbody{gap:8px;padding:10px 9px 11px}
-  .zhead{font-size:11.5px;padding:8px 8px 8px 0}
-  .zhead::before{width:7px;margin-right:9px}
-  .panel{padding:8px}
-  .panel h3{font-size:9.5px;margin-bottom:6px}
-  .panel h3 small{font-size:8px;margin-left:4px}
-  .srcbar{padding:6px 7px;font-size:10.5px}
-  .srcbar span{font-size:9px}
-  .kv{font-size:9px}
-  .kv th,.kv td{padding:5px 6px}
-  .photo{border-radius:7px}
-  .logo-sen{left:7px;top:7px;width:52px;height:52px;font-size:8px}
-  .mapA{border-radius:7px}
-  .cleanrow{grid-template-columns:1fr 18px 1fr;gap:4px}
-  .cleanrow .lab{font-size:8px;margin-bottom:4px}
-  .legrow{grid-template-columns:1fr 1fr;gap:4px;font-size:7.5px;margin-top:7px}
-  .legrow i{width:9px;height:9px}
-  .statbox{padding:7px}
-  .sb b{font-size:10px}
-  .sb span{font-size:7.5px}
-  .sarrow{width:18px;height:18px}
-  .proc{gap:4px}
-  .pr{gap:7px;padding:6px 7px;font-size:8.5px}
-  .pr svg{width:18px;height:18px}
-  .tt{padding:7px 8px;gap:7px;font-size:8.5px}
-  .tt svg{width:22px;height:22px}
-  .tt div{gap:2px 6px}
-  .models{gap:8px 6px;padding-top:2px}
-  .model{border-radius:9px;padding:7px}
-  .model.win{padding:6px}
-  .model h3{font-size:9px;margin-bottom:2px}
-  .model .ill{margin:1px 0 5px}
-  .badge{font-size:7px;padding:2px 6px;top:-8px;right:5px}
-  .rmse-t{font-size:7px;margin-bottom:3px}
-  .rm{grid-template-columns:55px 1fr 29px;gap:3px;font-size:7px}
-  .rn{font-size:6.8px}
-  .rv{font-size:7px}
-  .rt{height:6px}
-  #scatter{height:142px}
-  .mrow{grid-template-columns:28px 1fr auto;gap:2px 5px;padding:5px 1px;font-size:8px}
-  .mrow .v{font-size:9px}
-  .mrow .rl{font-size:7px}
-  .ok{font-size:7px;padding:2px 5px}
-  .verdict{margin-top:6px;padding:5px 6px;font-size:8px}
-  .cl li{gap:7px;padding:10px 10px;font-size:9px;line-height:1.3}
-  .sq{width:11px;height:11px}
-  .foot{padding:3px 16px 10px;font-size:8px}
+  .arrow .shape{width:30px;height:40px}
 }
 
 @media (prefers-reduced-motion:reduce){
@@ -559,7 +510,7 @@ function gauss(r){ var u=0; while(!u) u=r(); var v=r(); return Math.sqrt(-2*Math
 var root = document.documentElement;
 function fit(){
   var z = 1;
-  if(window.innerWidth >= 1240){ z = Math.min(1, (root.clientWidth - 24)/1560); }
+  if(window.innerWidth >= 1100){ z = Math.min(1, (root.clientWidth - 24)/1560); }
   root.style.setProperty('--z', z.toFixed(4));
 }
 function Z(){ return parseFloat(getComputedStyle(root).getPropertyValue('--z')) || 1; }
