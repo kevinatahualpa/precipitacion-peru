@@ -305,7 +305,7 @@ canvas{display:block;width:100%}
       </div>
       <h1><span>Comparación de algoritmos de regresión de aprendizaje supervisado</span><span class="o">para la predicción de la precipitación mensual en el Perú</span></h1>
       <div class="term-line">FLUJO COMPLETO DE LA INVESTIGACIÓN · dataset PISCOp_v3.0 ·
-        modelos: Regresión Ridge · Regresión KNN · Random Forest · XGBoost · bucle activo</div>
+        modelos: Regresión Ridge · Regresión KNN · Random Forest · XGBoost · bucle manual</div>
     </header>
 
     <div class="flow" id="flow">
@@ -769,7 +769,7 @@ if(document.fonts && document.fonts.ready){ document.fonts.ready.then(function()
 
 var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 var params = new URLSearchParams(location.search);
-setStatic(reduce || params.get('static')==='1');
+setStatic(reduce || params.get('loop')!=='1');
 })();
 </script>
 </body>
