@@ -185,6 +185,71 @@ svg.mapa { width:100%; height:auto; background:#FBFDFF; border-radius:9px; touch
 .kdd-paso b { display:block; font-size:14.5px; margin:5px 0 7px; }
 .kdd-paso p { font-size:12px; color:var(--gris); line-height:1.65; }
 
+/* KDD interactivo */
+.flujo { position:relative; display:flex; justify-content:space-between; gap:8px; margin:8px 0 22px; }
+.flujo-linea { position:absolute; top:24px; left:8%; right:8%; height:3px; background:var(--linea);
+  border-radius:2px; overflow:hidden; z-index:0; }
+.flujo-onda { position:absolute; inset:0;
+  background:repeating-linear-gradient(90deg, var(--naranja) 0 9px, transparent 9px 21px);
+  animation:onda 1.5s linear infinite; }
+@keyframes onda { from { transform:translateX(-21px); } to { transform:translateX(0); } }
+.nodo-kdd { position:relative; z-index:1; background:#fff; border:2px solid var(--linea); border-radius:11px;
+  padding:11px 8px; min-width:86px; flex:1; cursor:pointer; text-align:center; transition:.15s; min-height:64px; }
+.nodo-kdd b { display:block; font-size:11px; margin-top:5px; line-height:1.3; }
+.nodo-num { display:inline-flex; width:23px; height:23px; border-radius:50%; background:var(--linea);
+  color:var(--pizarra); align-items:center; justify-content:center; font-size:11px; font-weight:800; }
+.nodo-kdd.activa { border-color:var(--naranja); box-shadow:0 6px 18px rgba(234,88,12,.18); }
+.nodo-kdd.activa .nodo-num { background:var(--naranja); color:#fff; }
+.etapa-panel { display:none; background:#fff; border:1px solid var(--linea); border-radius:14px;
+  padding:26px; gap:26px; align-items:center; }
+.etapa-panel.activa { display:grid; grid-template-columns:1.05fr .95fr; }
+.etapa-tag { font-size:9.5px; letter-spacing:1.5px; text-transform:uppercase; color:var(--naranja); font-weight:800; }
+.etapa-panel h3 { font-size:21px; margin:6px 0 10px; }
+.etapa-panel p.desc { font-size:13.5px; color:var(--gris); line-height:1.75; }
+.cifras { display:flex; gap:10px; flex-wrap:wrap; margin-top:15px; }
+.cifra { background:var(--fondo); border:1px solid var(--linea); border-radius:9px; padding:9px 13px; }
+.cifra b { display:block; font-size:15px; color:var(--pizarra); }
+.cifra span { font-size:9px; letter-spacing:.8px; text-transform:uppercase; color:var(--gris); font-weight:800; }
+.visual { background:var(--fondo); border:1px solid var(--linea); border-radius:12px; padding:18px; }
+.grilla { display:grid; grid-template-columns:repeat(12,1fr); gap:4px; }
+.grilla i { display:block; aspect-ratio:1; border-radius:2.5px; background:var(--naranja-claro); }
+.grilla i.nulo { background:#DCE3EC; }
+.etapa-panel.activa .grilla i { animation:aparece .45s both; }
+@keyframes aparece { from { opacity:0; transform:scale(.55); } to { opacity:1; transform:scale(1); } }
+.leyenda-v { margin-top:12px; font-size:10.5px; color:var(--gris); display:flex; gap:14px; flex-wrap:wrap; }
+.leyenda-v i { width:11px; height:11px; border-radius:3px; display:inline-block; margin-right:5px; vertical-align:-1px; }
+.chips-flujo { display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin:6px 0 4px; }
+.chip-d { background:var(--pizarra-osc); color:#fff; border-radius:8px; padding:8px 13px; font-size:12px; font-weight:700; }
+.chip-o { background:var(--naranja); color:#fff; border-radius:8px; padding:8px 13px; font-size:12px; font-weight:700; }
+.flecha { font-size:16px; color:var(--gris); font-weight:800; }
+.split { display:flex; height:27px; border-radius:8px; overflow:hidden; margin:13px 0 6px;
+  font-size:10px; color:#fff; font-weight:800; }
+.split div { display:flex; align-items:center; justify-content:center; overflow:hidden; white-space:nowrap; }
+.barra { display:flex; align-items:center; gap:10px; margin:10px 0; }
+.barra-et { width:116px; font-size:11px; font-weight:700; }
+.barra-pista { flex:1; height:15px; background:var(--linea); border-radius:8px; overflow:hidden; }
+.barra-fill { height:100%; background:var(--naranja-claro); border-radius:8px; width:0;
+  transition:width 1.1s cubic-bezier(.2,.7,.3,1); }
+.etapa-panel.activa .barra-fill { width:var(--w); }
+.barra-val { width:62px; text-align:right; font-size:10.5px; color:var(--gris); font-weight:700; }
+.barra.gan .barra-fill { background:var(--naranja); }
+.barra.gan .barra-et { color:var(--naranja); }
+.metricas-mini { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }
+.metrica-mini { background:var(--fondo); border:1px solid var(--linea); border-radius:9px; padding:11px; text-align:center; }
+.metrica-mini b { display:block; font-size:15.5px; color:var(--naranja); }
+.metrica-mini span { font-size:9px; letter-spacing:.7px; text-transform:uppercase; color:var(--gris); font-weight:800; }
+.ganador-strip { margin-top:12px; background:var(--pizarra-osc); color:#fff; border-radius:9px;
+  padding:11px 15px; font-size:12px; font-weight:700; display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+.ganador-strip b { color:#F9A86B; }
+.kdd-controles { display:flex; align-items:center; gap:14px; margin-top:16px; flex-wrap:wrap; }
+.kdd-progreso { font-size:11px; color:var(--gris); font-weight:700; }
+@media (max-width:860px) {
+  .etapa-panel.activa { grid-template-columns:1fr; }
+  .flujo { flex-wrap:wrap; }
+  .flujo-linea { display:none; }
+  .nodo-kdd { flex:1 1 28%; }
+}
+
 /* fuentes / pie */
 .fuentes { font-size:13px; color:var(--gris); line-height:1.95; }
 .pie { margin-top:44px; background:var(--pizarra-osc); color:#B6C6D8; padding:26px 0; font-size:12.5px; }
@@ -595,27 +660,123 @@ svg.mapa { width:100%; height:auto; background:#FBFDFF; border-radius:9px; touch
       <h2 class="titulo">Proceso KDD — descubrimiento de conocimiento en bases de datos</h2>
       <p class="subtitulo">El procesamiento de la información siguió las cinco etapas del proceso KDD.
       A continuación se describe qué se hizo en cada etapa con los datos de precipitación.</p>
-      <div class="kdd">
-        <div class="kdd-paso"><div class="etapa">Etapa 1</div><b>Selección</b>
-          <p>Se definió la fuente PISCOp v3.0 (SENAMHI) y el periodo 1981–2025, con 540 meses de
-          precipitación en malla de 0,1° sobre el territorio nacional. Se formularon las preguntas de
-          predicción y se eligieron los cuatro algoritmos de regresión supervisada.</p></div>
-        <div class="kdd-paso"><div class="etapa">Etapa 2</div><b>Preprocesamiento</b>
-          <p>Se identificaron y eliminaron los valores centinela (sin dato) del archivo NetCDF.
-          De una malla total de 19 731 600 registros celda-mes se consolidaron 15 782 040
-          registros válidos (79,98 % del total).</p></div>
-        <div class="kdd-paso"><div class="etapa">Etapa 3</div><b>Transformación</b>
-          <p>Se construyó la variable objetivo (precipitación del mes siguiente) y las variables de
-          entrada de las dimensiones D1, D2 y D3 del instrumento. Se generaron las particiones de
-          entrenamiento (11 573 496 registros) y prueba (3 857 832 registros).</p></div>
-        <div class="kdd-paso"><div class="etapa">Etapa 4</div><b>Minería</b>
-          <p>Se entrenaron los cuatro algoritmos de la tesis (Regresión Ridge, Regresión KNN,
-          Random Forest y XGBoost) sobre las observaciones de entrenamiento, con evaluación común
-          sobre la muestra de prueba.</p></div>
-        <div class="kdd-paso"><div class="etapa">Etapa 5</div><b>Evaluación e interpretación</b>
-          <p>Se calcularon MAE, RMSE y R², se compararon con las líneas base de persistencia y
-          climatología frente a los umbrales de aceptación, se seleccionó el modelo ganador y se
-          proyectó la precipitación de 2026.</p></div>
+      <div class="flujo">
+        <div class="flujo-linea"><span class="flujo-onda"></span></div>
+        <button class="nodo-kdd activa" onclick="kddMostrar(0)"><span class="nodo-num">1</span><b>Selección</b></button>
+        <button class="nodo-kdd" onclick="kddMostrar(1)"><span class="nodo-num">2</span><b>Preprocesamiento</b></button>
+        <button class="nodo-kdd" onclick="kddMostrar(2)"><span class="nodo-num">3</span><b>Transformación</b></button>
+        <button class="nodo-kdd" onclick="kddMostrar(3)"><span class="nodo-num">4</span><b>Minería</b></button>
+        <button class="nodo-kdd" onclick="kddMostrar(4)"><span class="nodo-num">5</span><b>Evaluación</b></button>
+      </div>
+
+      <div class="etapa-panel activa">
+        <div>
+          <div class="etapa-tag">Etapa 1 de 5</div>
+          <h3>Selección</h3>
+          <p class="desc">Se definió la fuente PISCOp v3.0 (SENAMHI) y el periodo 1981–2025, con 540
+          meses de precipitación en malla de 0,1° sobre el territorio nacional. Se formularon las
+          preguntas de predicción y se eligieron los cuatro algoritmos de regresión supervisada.</p>
+          <div class="cifras">
+            <div class="cifra"><span>Periodo</span><b>1981 – 2025</b></div>
+            <div class="cifra"><span>Meses registrados</span><b>540</b></div>
+            <div class="cifra"><span>Resolución</span><b>0,1° ≈ 10 km</b></div>
+          </div>
+        </div>
+        <div class="visual">
+          <div class="grilla"><i style="opacity:0.30;animation-delay:0ms"></i><i style="opacity:0.89;animation-delay:6ms"></i><i style="opacity:0.45;animation-delay:12ms"></i><i style="opacity:0.86;animation-delay:18ms"></i><i style="opacity:0.60;animation-delay:24ms"></i><i style="opacity:0.78;animation-delay:30ms"></i><i style="opacity:0.72;animation-delay:36ms"></i><i style="opacity:0.67;animation-delay:42ms"></i><i style="opacity:0.82;animation-delay:48ms"></i><i style="opacity:0.54;animation-delay:54ms"></i><i style="opacity:0.88;animation-delay:60ms"></i><i style="opacity:0.39;animation-delay:66ms"></i><i style="opacity:0.90;animation-delay:72ms"></i><i style="opacity:0.37;animation-delay:78ms"></i><i style="opacity:0.88;animation-delay:84ms"></i><i style="opacity:0.52;animation-delay:90ms"></i><i style="opacity:0.83;animation-delay:96ms"></i><i style="opacity:0.65;animation-delay:102ms"></i><i style="opacity:0.74;animation-delay:108ms"></i><i style="opacity:0.76;animation-delay:114ms"></i><i style="opacity:0.62;animation-delay:120ms"></i><i style="opacity:0.85;animation-delay:126ms"></i><i style="opacity:0.48;animation-delay:132ms"></i><i style="opacity:0.89;animation-delay:138ms"></i><i style="opacity:0.32;animation-delay:144ms"></i><i style="opacity:0.90;animation-delay:150ms"></i><i style="opacity:0.43;animation-delay:156ms"></i><i style="opacity:0.86;animation-delay:162ms"></i><i style="opacity:0.57;animation-delay:168ms"></i><i style="opacity:0.79;animation-delay:174ms"></i><i style="opacity:0.70;animation-delay:180ms"></i><i style="opacity:0.69;animation-delay:186ms"></i><i style="opacity:0.80;animation-delay:192ms"></i><i style="opacity:0.56;animation-delay:198ms"></i><i style="opacity:0.87;animation-delay:204ms"></i><i style="opacity:0.41;animation-delay:210ms"></i><i style="opacity:0.90;animation-delay:216ms"></i><i style="opacity:0.34;animation-delay:222ms"></i><i style="opacity:0.89;animation-delay:228ms"></i><i style="opacity:0.49;animation-delay:234ms"></i><i style="opacity:0.84;animation-delay:240ms"></i><i style="opacity:0.63;animation-delay:246ms"></i><i style="opacity:0.75;animation-delay:252ms"></i><i style="opacity:0.75;animation-delay:258ms"></i><i style="opacity:0.64;animation-delay:264ms"></i><i style="opacity:0.84;animation-delay:270ms"></i><i style="opacity:0.50;animation-delay:276ms"></i><i style="opacity:0.89;animation-delay:282ms"></i><i style="opacity:0.35;animation-delay:288ms"></i><i style="opacity:0.90;animation-delay:294ms"></i><i style="opacity:0.41;animation-delay:300ms"></i><i style="opacity:0.87;animation-delay:306ms"></i><i style="opacity:0.55;animation-delay:312ms"></i><i style="opacity:0.81;animation-delay:318ms"></i><i style="opacity:0.68;animation-delay:324ms"></i><i style="opacity:0.71;animation-delay:330ms"></i><i style="opacity:0.79;animation-delay:336ms"></i><i style="opacity:0.58;animation-delay:342ms"></i><i style="opacity:0.86;animation-delay:348ms"></i><i style="opacity:0.44;animation-delay:354ms"></i><i style="opacity:0.90;animation-delay:360ms"></i><i style="opacity:0.32;animation-delay:366ms"></i><i style="opacity:0.89;animation-delay:372ms"></i><i style="opacity:0.47;animation-delay:378ms"></i><i style="opacity:0.85;animation-delay:384ms"></i><i style="opacity:0.61;animation-delay:390ms"></i><i style="opacity:0.77;animation-delay:396ms"></i><i style="opacity:0.73;animation-delay:402ms"></i><i style="opacity:0.66;animation-delay:408ms"></i><i style="opacity:0.82;animation-delay:414ms"></i><i style="opacity:0.52;animation-delay:420ms"></i><i style="opacity:0.88;animation-delay:426ms"></i><i style="opacity:0.37;animation-delay:432ms"></i><i style="opacity:0.90;animation-delay:438ms"></i><i style="opacity:0.38;animation-delay:444ms"></i><i style="opacity:0.88;animation-delay:450ms"></i><i style="opacity:0.53;animation-delay:456ms"></i><i style="opacity:0.82;animation-delay:462ms"></i><i style="opacity:0.66;animation-delay:468ms"></i><i style="opacity:0.73;animation-delay:474ms"></i><i style="opacity:0.77;animation-delay:480ms"></i><i style="opacity:0.60;animation-delay:486ms"></i><i style="opacity:0.85;animation-delay:492ms"></i><i style="opacity:0.46;animation-delay:498ms"></i></div>
+          <div class="leyenda-v"><span><i style="background:#FB923C"></i>Celda de la malla con dato mensual</span>
+            <span>Cada cuadro es una celda de 0,1° · malla de 210 × 174 celdas de 0,1° (36 540)</span></div>
+        </div>
+      </div>
+
+      <div class="etapa-panel">
+        <div>
+          <div class="etapa-tag">Etapa 2 de 5</div>
+          <h3>Preprocesamiento</h3>
+          <p class="desc">Se identificaron y eliminaron los valores centinela (sin dato) del archivo
+          NetCDF. De una malla total de 19 731 600 registros celda-mes se consolidaron 15 782 040
+          registros válidos (79,98 % del total).</p>
+          <div class="cifras">
+            <div class="cifra"><span>Malla total</span><b>19 731 600</b></div>
+            <div class="cifra"><span>Registros válidos</span><b>15 782 040</b></div>
+            <div class="cifra"><span>Conservado</span><b>79,98 %</b></div>
+          </div>
+        </div>
+        <div class="visual">
+          <div class="grilla"><i style="opacity:0.30;animation-delay:0ms"></i><i style="opacity:0.89;animation-delay:6ms"></i><i style="opacity:0.45;animation-delay:12ms"></i><i style="opacity:0.86;animation-delay:18ms"></i><i style="opacity:0.60;animation-delay:24ms"></i><i style="opacity:0.78;animation-delay:30ms"></i><i style="opacity:0.72;animation-delay:36ms"></i><i class="nulo" style="animation-delay:42ms"></i><i class="nulo" style="animation-delay:48ms"></i><i class="nulo" style="animation-delay:54ms"></i><i style="opacity:0.88;animation-delay:60ms"></i><i style="opacity:0.39;animation-delay:66ms"></i><i style="opacity:0.90;animation-delay:72ms"></i><i style="opacity:0.37;animation-delay:78ms"></i><i style="opacity:0.88;animation-delay:84ms"></i><i style="opacity:0.52;animation-delay:90ms"></i><i style="opacity:0.83;animation-delay:96ms"></i><i style="opacity:0.65;animation-delay:102ms"></i><i style="opacity:0.74;animation-delay:108ms"></i><i style="opacity:0.76;animation-delay:114ms"></i><i style="opacity:0.62;animation-delay:120ms"></i><i style="opacity:0.85;animation-delay:126ms"></i><i class="nulo" style="animation-delay:132ms"></i><i class="nulo" style="animation-delay:138ms"></i><i class="nulo" style="animation-delay:144ms"></i><i class="nulo" style="animation-delay:150ms"></i><i style="opacity:0.43;animation-delay:156ms"></i><i style="opacity:0.86;animation-delay:162ms"></i><i style="opacity:0.57;animation-delay:168ms"></i><i style="opacity:0.79;animation-delay:174ms"></i><i style="opacity:0.70;animation-delay:180ms"></i><i style="opacity:0.69;animation-delay:186ms"></i><i style="opacity:0.80;animation-delay:192ms"></i><i style="opacity:0.56;animation-delay:198ms"></i><i style="opacity:0.87;animation-delay:204ms"></i><i style="opacity:0.41;animation-delay:210ms"></i><i style="opacity:0.90;animation-delay:216ms"></i><i class="nulo" style="animation-delay:222ms"></i><i class="nulo" style="animation-delay:228ms"></i><i style="opacity:0.49;animation-delay:234ms"></i><i style="opacity:0.84;animation-delay:240ms"></i><i style="opacity:0.63;animation-delay:246ms"></i><i style="opacity:0.75;animation-delay:252ms"></i><i style="opacity:0.75;animation-delay:258ms"></i><i style="opacity:0.64;animation-delay:264ms"></i><i style="opacity:0.84;animation-delay:270ms"></i><i style="opacity:0.50;animation-delay:276ms"></i><i style="opacity:0.89;animation-delay:282ms"></i><i style="opacity:0.35;animation-delay:288ms"></i><i style="opacity:0.90;animation-delay:294ms"></i><i class="nulo" style="animation-delay:300ms"></i><i class="nulo" style="animation-delay:306ms"></i><i class="nulo" style="animation-delay:312ms"></i><i style="opacity:0.81;animation-delay:318ms"></i><i style="opacity:0.68;animation-delay:324ms"></i><i style="opacity:0.71;animation-delay:330ms"></i><i style="opacity:0.79;animation-delay:336ms"></i><i style="opacity:0.58;animation-delay:342ms"></i><i style="opacity:0.86;animation-delay:348ms"></i><i style="opacity:0.44;animation-delay:354ms"></i><i style="opacity:0.90;animation-delay:360ms"></i><i style="opacity:0.32;animation-delay:366ms"></i><i style="opacity:0.89;animation-delay:372ms"></i><i class="nulo" style="animation-delay:378ms"></i><i class="nulo" style="animation-delay:384ms"></i><i class="nulo" style="animation-delay:390ms"></i><i style="opacity:0.77;animation-delay:396ms"></i><i style="opacity:0.73;animation-delay:402ms"></i><i style="opacity:0.66;animation-delay:408ms"></i><i style="opacity:0.82;animation-delay:414ms"></i><i style="opacity:0.52;animation-delay:420ms"></i><i style="opacity:0.88;animation-delay:426ms"></i><i style="opacity:0.37;animation-delay:432ms"></i><i style="opacity:0.90;animation-delay:438ms"></i><i style="opacity:0.38;animation-delay:444ms"></i><i style="opacity:0.88;animation-delay:450ms"></i><i style="opacity:0.53;animation-delay:456ms"></i><i style="opacity:0.82;animation-delay:462ms"></i><i class="nulo" style="animation-delay:468ms"></i><i class="nulo" style="animation-delay:474ms"></i><i class="nulo" style="animation-delay:480ms"></i><i style="opacity:0.60;animation-delay:486ms"></i><i style="opacity:0.85;animation-delay:492ms"></i><i style="opacity:0.46;animation-delay:498ms"></i></div>
+          <div class="leyenda-v"><span><i style="background:#FB923C"></i>Registro válido</span>
+            <span><i style="background:#DCE3EC"></i>Centinela eliminado (sin dato)</span></div>
+        </div>
+      </div>
+
+      <div class="etapa-panel">
+        <div>
+          <div class="etapa-tag">Etapa 3 de 5</div>
+          <h3>Transformación</h3>
+          <p class="desc">Se construyó la variable objetivo (precipitación del mes siguiente) y las
+          variables de entrada de las dimensiones D1, D2 y D3 del instrumento. Se generaron las
+          particiones de entrenamiento y prueba.</p>
+          <div class="cifras">
+            <div class="cifra"><span>Dimensiones</span><b>D1 · D2 · D3</b></div>
+            <div class="cifra"><span>Variable objetivo</span><b>Mes siguiente</b></div>
+          </div>
+        </div>
+        <div class="visual">
+          <div class="chips-flujo">
+            <span class="chip-d">D1 · Magnitud</span>
+            <span class="chip-d">D2 · Estacionalidad</span>
+            <span class="chip-d">D3 · Persistencia</span>
+            <span class="flecha">→</span>
+            <span class="chip-o">y(c,t+1) · mm</span>
+          </div>
+          <div class="leyenda-v"><span>Partición de los registros válidos</span></div>
+          <div class="split"><div style="width:75.0%;background:#EA580C">Entrenamiento · 11 573 496</div><div style="width:25.0%;background:#334155">Prueba · 3 857 832</div></div>
+        </div>
+      </div>
+
+      <div class="etapa-panel">
+        <div>
+          <div class="etapa-tag">Etapa 4 de 5</div>
+          <h3>Minería</h3>
+          <p class="desc">Se entrenaron los cuatro algoritmos de la tesis (Regresión Ridge,
+          Regresión KNN, Random Forest y XGBoost) sobre las observaciones de entrenamiento, con
+          evaluación común sobre la muestra de prueba.</p>
+          <div class="cifras">
+            <div class="cifra"><span>Algoritmos</span><b>4</b></div>
+            <div class="cifra"><span>Evaluación común</span><b>3 857 832 obs.</b></div>
+          </div>
+        </div>
+        <div class="visual">
+          <p style="font-size:11px;color:var(--gris);font-weight:700;margin-bottom:4px">RMSE por algoritmo (mm) — menor es mejor</p>
+          <div class="barra"><div class="barra-et">Regresión Ridge</div><div class="barra-pista"><div class="barra-fill" style="--w:93%"></div></div><div class="barra-val">74,23 mm</div></div><div class="barra gan"><div class="barra-et">XGBoost</div><div class="barra-pista"><div class="barra-fill" style="--w:94%"></div></div><div class="barra-val">75,17 mm</div></div><div class="barra"><div class="barra-et">Random Forest</div><div class="barra-pista"><div class="barra-fill" style="--w:95%"></div></div><div class="barra-val">75,82 mm</div></div><div class="barra"><div class="barra-et">Regresión KNN</div><div class="barra-pista"><div class="barra-fill" style="--w:100%"></div></div><div class="barra-val">79,95 mm</div></div>
+        </div>
+      </div>
+
+      <div class="etapa-panel">
+        <div>
+          <div class="etapa-tag">Etapa 5 de 5</div>
+          <h3>Evaluación e interpretación</h3>
+          <p class="desc">Se calcularon MAE, RMSE y R², se compararon con las líneas base de
+          persistencia y climatología frente a los umbrales de aceptación, se seleccionó el modelo
+          ganador y se proyectó la precipitación de 2026.</p>
+          <div class="cifras">
+            <div class="cifra"><span>Umbrales</span><b>3 de 3 cumplidos</b></div>
+            <div class="cifra"><span>Proyección</span><b>2026 generada</b></div>
+          </div>
+        </div>
+        <div class="visual">
+          <div class="metricas-mini">
+            <div class="metrica-mini"><b>48,26</b><span>MAE (mm) · cumple</span></div>
+            <div class="metrica-mini"><b>75,17</b><span>RMSE (mm) · cumple</span></div>
+            <div class="metrica-mini"><b>0,79</b><span>R² · cumple</span></div>
+          </div>
+          <div class="ganador-strip"><span>Modelo ganador</span><b>XGBoost</b></div>
+        </div>
+      </div>
+
+      <div class="kdd-controles">
+        <button class="boton" id="kdd-play" onclick="kddPlay()">Reproducir proceso</button>
+        <span class="kdd-progreso">Toca cada etapa del flujo o reproduce el proceso completo</span>
       </div>
 
       <div class="tarjeta" style="margin-top:20px">
@@ -756,6 +917,21 @@ function ver(id) {
 pintarDeptos();
 pintarTop();
 seleccionarNacional();
+
+/* KDD interactivo */
+function kddMostrar(i) {
+  document.querySelectorAll('.nodo-kdd').forEach((n, k) => n.classList.toggle('activa', k === i));
+  document.querySelectorAll('.etapa-panel').forEach((p, k) => p.classList.toggle('activa', k === i));
+}
+let kddTimer = null;
+function kddPlay() {
+  const btn = document.getElementById('kdd-play');
+  if (kddTimer) { clearInterval(kddTimer); kddTimer = null; btn.textContent = 'Reproducir proceso'; return; }
+  btn.textContent = 'Detener proceso';
+  let i = 0; kddMostrar(0);
+  kddTimer = setInterval(() => { i = (i + 1) % 5; kddMostrar(i); }, 4200);
+}
+kddMostrar(0);
 
 </script>
 </body>

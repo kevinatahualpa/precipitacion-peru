@@ -19,6 +19,7 @@ import base64
 import csv
 import io
 import json
+import math
 import os
 import re
 
@@ -238,6 +239,45 @@ def tabla_proyeccion():
     return "\n".join(f"<tr><td>{p}</td><td class='num'>{num(v, 1)}</td></tr>"
                      for p, v in zip(PROY["meses"], PROY["media_nacional_mm"]))
 
+NULOS_PREP = {7, 8, 9, 22, 23, 24, 25, 37, 38, 50, 51, 52, 63, 64, 65, 78, 79, 80}
+
+def grilla(n=84, nulos=frozenset()):
+    """Cuadrícula de celdas (visual animado de las etapas 1 y 2)."""
+    celdas = []
+    for i in range(n):
+        retardo = f"animation-delay:{i * 6}ms"
+        if i in nulos:
+            celdas.append(f'<i class="nulo" style="{retardo}"></i>')
+        else:
+            op = 0.30 + 0.60 * abs(math.sin(i * 1.7))
+            celdas.append(f'<i style="opacity:{op:.2f};{retardo}"></i>')
+    return "".join(celdas)
+
+
+def barras_mineria():
+    """Barras animadas de RMSE por algoritmo (visual de la etapa 4)."""
+    mx = max(m["rmse"] for m in MODELOS)
+    filas = []
+    for m2 in sorted(MODELOS, key=lambda x: x["rmse"]):
+        gan = " gan" if m2["nombre"] == GAN["nombre"] else ""
+        w = m2["rmse"] / mx * 100
+        filas.append(
+            f'<div class="barra{gan}"><div class="barra-et">{m2["nombre"]}</div>'
+            f'<div class="barra-pista"><div class="barra-fill" style="--w:{w:.0f}%"></div></div>'
+            f'<div class="barra-val">{num(m2["rmse"], 2)} mm</div></div>')
+    return "".join(filas)
+
+
+def split_particiones():
+    """Barra de partición entrenamiento/prueba (visual de la etapa 3)."""
+    total = R["train"] + R["test"]
+    tr = R["train"] / total * 100
+    return (f'<div class="split">'
+            f'<div style="width:{tr:.1f}%;background:#EA580C">Entrenamiento · {num(R["train"], 0)}</div>'
+            f'<div style="width:{100 - tr:.1f}%;background:#334155">Prueba · {num(R["test"], 0)}</div>'
+            f'</div>')
+
+
 def tarjeta_metrica(titulo, valor, unidad, definicion, umbral, mi_umbral, ok, descripcion):
     return f"""
       <div class="tarjeta-metrica">
@@ -433,6 +473,71 @@ svg.mapa { width:100%; height:auto; background:#FBFDFF; border-radius:9px; touch
 .kdd-paso b { display:block; font-size:14.5px; margin:5px 0 7px; }
 .kdd-paso p { font-size:12px; color:var(--gris); line-height:1.65; }
 
+/* KDD interactivo */
+.flujo { position:relative; display:flex; justify-content:space-between; gap:8px; margin:8px 0 22px; }
+.flujo-linea { position:absolute; top:24px; left:8%; right:8%; height:3px; background:var(--linea);
+  border-radius:2px; overflow:hidden; z-index:0; }
+.flujo-onda { position:absolute; inset:0;
+  background:repeating-linear-gradient(90deg, var(--naranja) 0 9px, transparent 9px 21px);
+  animation:onda 1.5s linear infinite; }
+@keyframes onda { from { transform:translateX(-21px); } to { transform:translateX(0); } }
+.nodo-kdd { position:relative; z-index:1; background:#fff; border:2px solid var(--linea); border-radius:11px;
+  padding:11px 8px; min-width:86px; flex:1; cursor:pointer; text-align:center; transition:.15s; min-height:64px; }
+.nodo-kdd b { display:block; font-size:11px; margin-top:5px; line-height:1.3; }
+.nodo-num { display:inline-flex; width:23px; height:23px; border-radius:50%; background:var(--linea);
+  color:var(--pizarra); align-items:center; justify-content:center; font-size:11px; font-weight:800; }
+.nodo-kdd.activa { border-color:var(--naranja); box-shadow:0 6px 18px rgba(234,88,12,.18); }
+.nodo-kdd.activa .nodo-num { background:var(--naranja); color:#fff; }
+.etapa-panel { display:none; background:#fff; border:1px solid var(--linea); border-radius:14px;
+  padding:26px; gap:26px; align-items:center; }
+.etapa-panel.activa { display:grid; grid-template-columns:1.05fr .95fr; }
+.etapa-tag { font-size:9.5px; letter-spacing:1.5px; text-transform:uppercase; color:var(--naranja); font-weight:800; }
+.etapa-panel h3 { font-size:21px; margin:6px 0 10px; }
+.etapa-panel p.desc { font-size:13.5px; color:var(--gris); line-height:1.75; }
+.cifras { display:flex; gap:10px; flex-wrap:wrap; margin-top:15px; }
+.cifra { background:var(--fondo); border:1px solid var(--linea); border-radius:9px; padding:9px 13px; }
+.cifra b { display:block; font-size:15px; color:var(--pizarra); }
+.cifra span { font-size:9px; letter-spacing:.8px; text-transform:uppercase; color:var(--gris); font-weight:800; }
+.visual { background:var(--fondo); border:1px solid var(--linea); border-radius:12px; padding:18px; }
+.grilla { display:grid; grid-template-columns:repeat(12,1fr); gap:4px; }
+.grilla i { display:block; aspect-ratio:1; border-radius:2.5px; background:var(--naranja-claro); }
+.grilla i.nulo { background:#DCE3EC; }
+.etapa-panel.activa .grilla i { animation:aparece .45s both; }
+@keyframes aparece { from { opacity:0; transform:scale(.55); } to { opacity:1; transform:scale(1); } }
+.leyenda-v { margin-top:12px; font-size:10.5px; color:var(--gris); display:flex; gap:14px; flex-wrap:wrap; }
+.leyenda-v i { width:11px; height:11px; border-radius:3px; display:inline-block; margin-right:5px; vertical-align:-1px; }
+.chips-flujo { display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin:6px 0 4px; }
+.chip-d { background:var(--pizarra-osc); color:#fff; border-radius:8px; padding:8px 13px; font-size:12px; font-weight:700; }
+.chip-o { background:var(--naranja); color:#fff; border-radius:8px; padding:8px 13px; font-size:12px; font-weight:700; }
+.flecha { font-size:16px; color:var(--gris); font-weight:800; }
+.split { display:flex; height:27px; border-radius:8px; overflow:hidden; margin:13px 0 6px;
+  font-size:10px; color:#fff; font-weight:800; }
+.split div { display:flex; align-items:center; justify-content:center; overflow:hidden; white-space:nowrap; }
+.barra { display:flex; align-items:center; gap:10px; margin:10px 0; }
+.barra-et { width:116px; font-size:11px; font-weight:700; }
+.barra-pista { flex:1; height:15px; background:var(--linea); border-radius:8px; overflow:hidden; }
+.barra-fill { height:100%; background:var(--naranja-claro); border-radius:8px; width:0;
+  transition:width 1.1s cubic-bezier(.2,.7,.3,1); }
+.etapa-panel.activa .barra-fill { width:var(--w); }
+.barra-val { width:62px; text-align:right; font-size:10.5px; color:var(--gris); font-weight:700; }
+.barra.gan .barra-fill { background:var(--naranja); }
+.barra.gan .barra-et { color:var(--naranja); }
+.metricas-mini { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }
+.metrica-mini { background:var(--fondo); border:1px solid var(--linea); border-radius:9px; padding:11px; text-align:center; }
+.metrica-mini b { display:block; font-size:15.5px; color:var(--naranja); }
+.metrica-mini span { font-size:9px; letter-spacing:.7px; text-transform:uppercase; color:var(--gris); font-weight:800; }
+.ganador-strip { margin-top:12px; background:var(--pizarra-osc); color:#fff; border-radius:9px;
+  padding:11px 15px; font-size:12px; font-weight:700; display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+.ganador-strip b { color:#F9A86B; }
+.kdd-controles { display:flex; align-items:center; gap:14px; margin-top:16px; flex-wrap:wrap; }
+.kdd-progreso { font-size:11px; color:var(--gris); font-weight:700; }
+@media (max-width:860px) {
+  .etapa-panel.activa { grid-template-columns:1fr; }
+  .flujo { flex-wrap:wrap; }
+  .flujo-linea { display:none; }
+  .nodo-kdd { flex:1 1 28%; }
+}
+
 /* fuentes / pie */
 .fuentes { font-size:13px; color:var(--gris); line-height:1.95; }
 .pie { margin-top:44px; background:var(--pizarra-osc); color:#B6C6D8; padding:26px 0; font-size:12.5px; }
@@ -566,6 +671,21 @@ function ver(id) {
 pintarDeptos();
 pintarTop();
 seleccionarNacional();
+
+/* KDD interactivo */
+function kddMostrar(i) {
+  document.querySelectorAll('.nodo-kdd').forEach((n, k) => n.classList.toggle('activa', k === i));
+  document.querySelectorAll('.etapa-panel').forEach((p, k) => p.classList.toggle('activa', k === i));
+}
+let kddTimer = null;
+function kddPlay() {
+  const btn = document.getElementById('kdd-play');
+  if (kddTimer) { clearInterval(kddTimer); kddTimer = null; btn.textContent = 'Reproducir proceso'; return; }
+  btn.textContent = 'Detener proceso';
+  let i = 0; kddMostrar(0);
+  kddTimer = setInterval(() => { i = (i + 1) % 5; kddMostrar(i); }, 4200);
+}
+kddMostrar(0);
 """
 
 PLANTILLA = """<!DOCTYPE html>
@@ -865,27 +985,123 @@ PLANTILLA = """<!DOCTYPE html>
       <h2 class="titulo">Proceso KDD — descubrimiento de conocimiento en bases de datos</h2>
       <p class="subtitulo">El procesamiento de la información siguió las cinco etapas del proceso KDD.
       A continuación se describe qué se hizo en cada etapa con los datos de precipitación.</p>
-      <div class="kdd">
-        <div class="kdd-paso"><div class="etapa">Etapa 1</div><b>Selección</b>
-          <p>Se definió la fuente PISCOp v3.0 (SENAMHI) y el periodo 1981–2025, con 540 meses de
-          precipitación en malla de 0,1° sobre el territorio nacional. Se formularon las preguntas de
-          predicción y se eligieron los cuatro algoritmos de regresión supervisada.</p></div>
-        <div class="kdd-paso"><div class="etapa">Etapa 2</div><b>Preprocesamiento</b>
-          <p>Se identificaron y eliminaron los valores centinela (sin dato) del archivo NetCDF.
-          De una malla total de __MALLA__ registros celda-mes se consolidaron __N_VALIDOS__
-          registros válidos (__PCT__ % del total).</p></div>
-        <div class="kdd-paso"><div class="etapa">Etapa 3</div><b>Transformación</b>
-          <p>Se construyó la variable objetivo (precipitación del mes siguiente) y las variables de
-          entrada de las dimensiones D1, D2 y D3 del instrumento. Se generaron las particiones de
-          entrenamiento (__TRAIN__ registros) y prueba (__TEST__ registros).</p></div>
-        <div class="kdd-paso"><div class="etapa">Etapa 4</div><b>Minería</b>
-          <p>Se entrenaron los cuatro algoritmos de la tesis (Regresión Ridge, Regresión KNN,
-          Random Forest y XGBoost) sobre las observaciones de entrenamiento, con evaluación común
-          sobre la muestra de prueba.</p></div>
-        <div class="kdd-paso"><div class="etapa">Etapa 5</div><b>Evaluación e interpretación</b>
-          <p>Se calcularon MAE, RMSE y R², se compararon con las líneas base de persistencia y
-          climatología frente a los umbrales de aceptación, se seleccionó el modelo ganador y se
-          proyectó la precipitación de 2026.</p></div>
+      <div class="flujo">
+        <div class="flujo-linea"><span class="flujo-onda"></span></div>
+        <button class="nodo-kdd activa" onclick="kddMostrar(0)"><span class="nodo-num">1</span><b>Selección</b></button>
+        <button class="nodo-kdd" onclick="kddMostrar(1)"><span class="nodo-num">2</span><b>Preprocesamiento</b></button>
+        <button class="nodo-kdd" onclick="kddMostrar(2)"><span class="nodo-num">3</span><b>Transformación</b></button>
+        <button class="nodo-kdd" onclick="kddMostrar(3)"><span class="nodo-num">4</span><b>Minería</b></button>
+        <button class="nodo-kdd" onclick="kddMostrar(4)"><span class="nodo-num">5</span><b>Evaluación</b></button>
+      </div>
+
+      <div class="etapa-panel activa">
+        <div>
+          <div class="etapa-tag">Etapa 1 de 5</div>
+          <h3>Selección</h3>
+          <p class="desc">Se definió la fuente PISCOp v3.0 (SENAMHI) y el periodo 1981–2025, con 540
+          meses de precipitación en malla de 0,1° sobre el territorio nacional. Se formularon las
+          preguntas de predicción y se eligieron los cuatro algoritmos de regresión supervisada.</p>
+          <div class="cifras">
+            <div class="cifra"><span>Periodo</span><b>1981 – 2025</b></div>
+            <div class="cifra"><span>Meses registrados</span><b>__MESES_N__</b></div>
+            <div class="cifra"><span>Resolución</span><b>0,1° ≈ 10 km</b></div>
+          </div>
+        </div>
+        <div class="visual">
+          <div class="grilla">__GRILLA_SEL__</div>
+          <div class="leyenda-v"><span><i style="background:#FB923C"></i>Celda de la malla con dato mensual</span>
+            <span>Cada cuadro es una celda de 0,1° · malla de __MALLA_DIM__</span></div>
+        </div>
+      </div>
+
+      <div class="etapa-panel">
+        <div>
+          <div class="etapa-tag">Etapa 2 de 5</div>
+          <h3>Preprocesamiento</h3>
+          <p class="desc">Se identificaron y eliminaron los valores centinela (sin dato) del archivo
+          NetCDF. De una malla total de __MALLA__ registros celda-mes se consolidaron __N_VALIDOS__
+          registros válidos (__PCT__ % del total).</p>
+          <div class="cifras">
+            <div class="cifra"><span>Malla total</span><b>__MALLA__</b></div>
+            <div class="cifra"><span>Registros válidos</span><b>__N_VALIDOS__</b></div>
+            <div class="cifra"><span>Conservado</span><b>__PCT__ %</b></div>
+          </div>
+        </div>
+        <div class="visual">
+          <div class="grilla">__GRILLA_PREP__</div>
+          <div class="leyenda-v"><span><i style="background:#FB923C"></i>Registro válido</span>
+            <span><i style="background:#DCE3EC"></i>Centinela eliminado (sin dato)</span></div>
+        </div>
+      </div>
+
+      <div class="etapa-panel">
+        <div>
+          <div class="etapa-tag">Etapa 3 de 5</div>
+          <h3>Transformación</h3>
+          <p class="desc">Se construyó la variable objetivo (precipitación del mes siguiente) y las
+          variables de entrada de las dimensiones D1, D2 y D3 del instrumento. Se generaron las
+          particiones de entrenamiento y prueba.</p>
+          <div class="cifras">
+            <div class="cifra"><span>Dimensiones</span><b>D1 · D2 · D3</b></div>
+            <div class="cifra"><span>Variable objetivo</span><b>Mes siguiente</b></div>
+          </div>
+        </div>
+        <div class="visual">
+          <div class="chips-flujo">
+            <span class="chip-d">D1 · Magnitud</span>
+            <span class="chip-d">D2 · Estacionalidad</span>
+            <span class="chip-d">D3 · Persistencia</span>
+            <span class="flecha">→</span>
+            <span class="chip-o">y(c,t+1) · mm</span>
+          </div>
+          <div class="leyenda-v"><span>Partición de los registros válidos</span></div>
+          __SPLIT__
+        </div>
+      </div>
+
+      <div class="etapa-panel">
+        <div>
+          <div class="etapa-tag">Etapa 4 de 5</div>
+          <h3>Minería</h3>
+          <p class="desc">Se entrenaron los cuatro algoritmos de la tesis (Regresión Ridge,
+          Regresión KNN, Random Forest y XGBoost) sobre las observaciones de entrenamiento, con
+          evaluación común sobre la muestra de prueba.</p>
+          <div class="cifras">
+            <div class="cifra"><span>Algoritmos</span><b>4</b></div>
+            <div class="cifra"><span>Evaluación común</span><b>__TEST__ obs.</b></div>
+          </div>
+        </div>
+        <div class="visual">
+          <p style="font-size:11px;color:var(--gris);font-weight:700;margin-bottom:4px">RMSE por algoritmo (mm) — menor es mejor</p>
+          __BARRAS_ALGOS__
+        </div>
+      </div>
+
+      <div class="etapa-panel">
+        <div>
+          <div class="etapa-tag">Etapa 5 de 5</div>
+          <h3>Evaluación e interpretación</h3>
+          <p class="desc">Se calcularon MAE, RMSE y R², se compararon con las líneas base de
+          persistencia y climatología frente a los umbrales de aceptación, se seleccionó el modelo
+          ganador y se proyectó la precipitación de 2026.</p>
+          <div class="cifras">
+            <div class="cifra"><span>Umbrales</span><b>3 de 3 cumplidos</b></div>
+            <div class="cifra"><span>Proyección</span><b>2026 generada</b></div>
+          </div>
+        </div>
+        <div class="visual">
+          <div class="metricas-mini">
+            <div class="metrica-mini"><b>__GAN_MAE__</b><span>MAE (mm) · cumple</span></div>
+            <div class="metrica-mini"><b>__GAN_RMSE__</b><span>RMSE (mm) · cumple</span></div>
+            <div class="metrica-mini"><b>__R2__</b><span>R² · cumple</span></div>
+          </div>
+          <div class="ganador-strip"><span>Modelo ganador</span><b>__GAN_NOMBRE__</b></div>
+        </div>
+      </div>
+
+      <div class="kdd-controles">
+        <button class="boton" id="kdd-play" onclick="kddPlay()">Reproducir proceso</button>
+        <span class="kdd-progreso">Toca cada etapa del flujo o reproduce el proceso completo</span>
       </div>
 
       <div class="tarjeta" style="margin-top:20px">
@@ -987,6 +1203,10 @@ html = (PLANTILLA
         .replace("__TABLA_DEPTOS__", tabla_departamentos())
         .replace("__TABLA_CLIM__", tabla_climatologia())
         .replace("__TABLA_PROY__", tabla_proyeccion())
+        .replace("__GRILLA_SEL__", grilla())
+        .replace("__GRILLA_PREP__", grilla(nulos=NULOS_PREP))
+        .replace("__BARRAS_ALGOS__", barras_mineria())
+        .replace("__SPLIT__", split_particiones())
         .replace("__MESES_TH__", "".join(f"<th class='num'>{m}</th>" for m in MESES))
         )
 
