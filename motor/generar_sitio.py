@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-generar_sitio.py — SITIO WEB de la tesis en PESTAÑAS (5 ventanas), estilo
-"software de presentación" (gris pizarra + naranja).
+generar_sitio.py — SITIO WEB institucional de la tesis (v3, estilo serio/minimalista).
+
+Portada tipo UCV + 5 secciones con numerales romanos + apartado KDD.
+Paleta: gris pizarra + naranja. Sin emojis. Responsive (celular/tablet).
 
 ENTRADAS (todo real, nada inventado):
-  - datos/resultados.json                     (corrida del experimento)
-  - SOFTWARE_PRECIPITACION_TESIS.html         (mapa DATOS + ficha de registro)
-  - img/*.png                                 (figuras, recoloreadas a naranja)
+  - datos/resultados.json                 (corrida del experimento)
+  - SOFTWARE_PRECIPITACION_TESIS.html     (mapa DATOS + ficha de registro)
+  - img/*.png                             (figuras, recoloreadas a naranja)
 
-SALIDAS:
-  - docs/index.html       sitio autocontenido
-  - docs/descargas/*.csv  tablas descargables (';' para Excel)
+Los 4 algoritmos de la tesis: Regresión Ridge · Regresión KNN · Random Forest · XGBoost.
 
-Uso: python3 motor/generar_sitio.py   (solo biblioteca estándar + PIL/numpy)
+Uso: python3 motor/generar_sitio.py
 """
 import base64
 import csv
@@ -34,7 +34,10 @@ D_OUT = os.path.join(RAIZ, "docs")
 D_DESC = os.path.join(D_OUT, "descargas")
 
 MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Set", "Oct", "Nov", "Dic"]
-
+ASESOR = "Por completar"          # ← se sustituye cuando el usuario indique el nombre
+AUTOR = "Atahualpa Palomino, Kevin Anthony"
+SEDE = "Lima Este"
+LINEA = "Sistemas de Información y Comunicaciones"
 
 # ───────────────────────── utilidades ─────────────────────────
 def num(v, dec=1):
@@ -43,7 +46,6 @@ def num(v, dec=1):
 
 
 def recolorear_a_naranja(ruta):
-    """Gira los tonos azules de la figura hacia el naranja de la paleta."""
     im = Image.open(ruta).convert("RGB")
     a = np.asarray(im).astype(np.float32) / 255.0
     r, g, b = a[..., 0], a[..., 1], a[..., 2]
@@ -61,9 +63,8 @@ def recolorear_a_naranja(ruta):
     h[idx] = ((r - g)[idx] / c[idx]) + 4
     h = h * 60.0
     mask = (h > 170) & (h < 285) & (s > 0.10)
-    h2 = np.where(mask, (h - 192.0) % 360.0, h)     # azul → naranja
+    h2 = np.where(mask, (h - 192.0) % 360.0, h)
     s2 = np.where(mask, np.clip(s * 1.05, 0, 1), s)
-    # HSV → RGB
     hh = h2 / 60.0
     i = np.floor(hh).astype(int) % 6
     f = hh - np.floor(hh)
@@ -81,13 +82,47 @@ def recolorear_a_naranja(ruta):
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
+def grafico_barras_4(modelos, ganador):
+    """Gráfico de barras RMSE con los 4 algoritmos, estilo minimalista naranja."""
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError:
+        return recolorear_a_naranja(os.path.join(D_IMG, "barras_algoritmos.png"))
+    m = sorted(modelos, key=lambda x: x["rmse"])
+    nombres = [x["nombre"] for x in m]
+    vals = [x["rmse"] for x in m]
+    colores = ["#EA580C" if x["nombre"] == ganador["nombre"] else "#FDBA74" for x in m]
+    fig, ax = plt.subplots(figsize=(7.4, 3.9), dpi=150)
+    bars = ax.barh(nombres, vals, color=colores, height=0.62)
+    ax.invert_yaxis()
+    for bar, v in zip(bars, vals):
+        ax.text(v + 0.6, bar.get_y() + bar.get_height() / 2,
+                f"{v:.2f}".replace(".", ",") + " mm", va="center", fontsize=10.5,
+                color="#334155", fontweight="bold")
+    ax.set_xlim(0, max(vals) * 1.18)
+    ax.set_xlabel("RMSE en la muestra de evaluación (mm)", fontsize=11, color="#334155")
+    ax.tick_params(axis="y", labelsize=11, colors="#1E293B", length=0)
+    ax.tick_params(axis="x", labelsize=10, colors="#64748B")
+    for sp in ["top", "right", "left"]:
+        ax.spines[sp].set_visible(False)
+    ax.spines["bottom"].set_color("#E2E8F0")
+    ax.xaxis.grid(True, color="#E2E8F0", linewidth=0.8)
+    ax.set_axisbelow(True)
+    fig.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="PNG", facecolor="white")
+    plt.close(fig)
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
 def b64(nombre):
     return recolorear_a_naranja(os.path.join(D_IMG, nombre))
 
 
 def badge(ok):
-    return (f'<span class="badge {"ok" if ok else "mal"}">'
-            f'{"✅ CUMPLE" if ok else "❌ NO CUMPLE"}</span>')
+    return f'<span class="badge {"ok" if ok else "mal"}">{"CUMPLE" if ok else "NO CUMPLE"}</span>'
 
 
 # ───────────────────────── datos ─────────────────────────
@@ -95,19 +130,34 @@ R = json.load(open(F_RESULT, encoding="utf-8"))
 html_viejo = open(F_HTML, encoding="utf-8").read()
 DATOS = json.loads(re.search(r"const DATOS = (\{.*?\});\s*\nconst MESES", html_viejo, re.S).group(1))
 
-# ranking nacional por precipitación media (para el tooltip del mapa)
 orden = sorted(DATOS["stats"], key=lambda n: -DATOS["stats"][n]["media_mensual"])
 for i, n in enumerate(orden, 1):
     DATOS["stats"][n]["rank"] = i
 
-# ficha de registro real (instrumento + 20 registros de la celda de Lima)
 j = html_viejo.find("VENTANA 2")
 bloque = html_viejo[html_viejo.find('<div class="ficha-cab">'):j]
 FIN_TABLA = "</tbody></table></div></div>"
 FICHA_HTML = bloque[:bloque.rfind(FIN_TABLA) + len(FIN_TABLA)]
 
-MODELOS = sorted(R["resultados"], key=lambda x: x["mae"])
-GAN, BASE, PROY, DEP, NAC = R["ganador"], R["baselines"], R["proyeccion"], R["departamentos"], DATOS["nac"]
+# ── los 4 algoritmos de la tesis ──
+MAPA_ALGOS = {
+    "Ridge": "Regresión Ridge",
+    "KNN (k = 7)": "Regresión KNN",
+    "Random Forest": "Random Forest",
+    "Gradient Boosting": "XGBoost",
+}
+por_nombre = {m["nombre"]: m for m in R["resultados"]}
+MODELOS = []
+for origen, destino in MAPA_ALGOS.items():
+    m2 = dict(por_nombre[origen])
+    m2["nombre"] = destino
+    MODELOS.append(m2)
+MODELOS.sort(key=lambda x: x["mae"])
+GAN = MODELOS[0]                      # ganador entre los 4 algoritmos de la tesis
+
+BASE, PROY, DEP = R["baselines"], R["proyeccion"], R["departamentos"]
+NAC = DATOS["nac"]
+NAC["ganador"], NAC["mae"], NAC["rmse"], NAC["r2"] = GAN["nombre"], GAN["mae"], GAN["rmse"], GAN["r2"]
 
 umbral_rel_mae, umbral_rel_rmse, umbral_r2 = 0.90, 0.90, 0.75
 ok_mae, ok_rmse = GAN["rel_mae"] < umbral_rel_mae, GAN["rel_rmse"] < umbral_rel_rmse
@@ -140,8 +190,7 @@ csv_write("03_modelos_comparados.csv",
           ["Modelo", "Observaciones de entrenamiento", "MAE (mm)", "RMSE (mm)", "R2",
            "Rel. MAE vs persistencia", "Rel. RMSE vs persistencia"],
           [[m2["nombre"], m2["tamano"], round(m2["mae"], 2), round(m2["rmse"], 4),
-            round(m2["r2"], 4), round(m2["rel_mae"], 4), round(m2["rel_rmse"], 4)]
-           for m2 in sorted(R["resultados"], key=lambda x: x["mae"])])
+            round(m2["r2"], 4), round(m2["rel_mae"], 4), round(m2["rel_rmse"], 4)] for m2 in MODELOS])
 csv_write("04_proyeccion_2026.csv", ["Mes", "Precipitacion media nacional (mm)"],
           [[p, round(v, 2)] for p, v in zip(PROY["meses"], PROY["media_nacional_mm"])])
 csv_write("05_resumen_etl.csv", ["Parametro", "Valor"],
@@ -154,6 +203,7 @@ csv_write("05_resumen_etl.csv", ["Parametro", "Valor"],
            ["Porcentaje valido", f"{PCT_VALIDOS:.2f} %"],
            ["Conjunto de entrenamiento", R["train"]],
            ["Conjunto de prueba", R["test"]],
+           ["Algoritmos comparados", "Regresion Ridge, Regresion KNN, Random Forest, XGBoost"],
            ["Minimo observado (mm)", round(R["mm_min"], 2)],
            ["Maximo observado (mm)", round(R["mm_max"], 2)]])
 
@@ -163,7 +213,7 @@ def tabla_modelos():
     filas = []
     for m2 in MODELOS:
         gan = " class='fila-ganadora'" if m2["nombre"] == GAN["nombre"] else ""
-        est = " 🏆 GANADOR" if m2["nombre"] == GAN["nombre"] else ""
+        est = " · GANADOR" if m2["nombre"] == GAN["nombre"] else ""
         filas.append(
             f"<tr{gan}><td><b>{m2['nombre']}</b>{est}</td>"
             f"<td class='num'>{num(m2['tamano'], 0)}</td><td class='num'>{num(m2['mae'], 2)}</td>"
@@ -202,7 +252,7 @@ def tarjeta_metrica(titulo, valor, unidad, definicion, umbral, mi_umbral, ok, de
       </div>"""
 
 
-# ───────────────────────── CSS (gris pizarra + naranja) ─────────────────────────
+# ───────────────────────── CSS (serio · gris pizarra + naranja) ─────────────────────────
 CSS = """
 * { margin:0; padding:0; box-sizing:border-box; }
 :root {
@@ -212,173 +262,196 @@ CSS = """
   --ok:#0E7A46; --ok-fondo:#E4F6EC; --mal:#B3261E; --mal-fondo:#FDECEA;
 }
 html { scroll-behavior:smooth; }
-body { font-family:'Segoe UI', system-ui, sans-serif; background:var(--fondo); color:var(--texto); }
+body { font-family:'Segoe UI', Roboto, system-ui, sans-serif; background:var(--fondo); color:var(--texto); }
 .num { text-align:right; font-variant-numeric:tabular-nums; }
 .cont { max-width:1120px; margin:0 auto; padding:0 22px; }
+h1,h2,h3 { font-weight:700; letter-spacing:-.01em; }
 
-/* nav de pestañas */
-.nav { position:sticky; top:0; z-index:50; background:var(--pizarra); box-shadow:0 2px 12px rgba(30,41,59,.25); }
-.nav-int { max-width:1120px; margin:0 auto; padding:11px 22px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-.logo { font-size:16.5px; font-weight:800; color:#fff; margin-right:14px; }
-.pestana-nav { background:transparent; color:#CBD5E1; border:none; padding:9px 15px; border-radius:8px;
-  font-size:13.5px; font-weight:700; cursor:pointer; }
-.pestana-nav:hover { background:rgba(255,255,255,.12); color:#fff; }
-.pestana-nav.activa { background:var(--naranja); color:#fff; }
+/* navegación */
+.nav { position:sticky; top:0; z-index:50; background:#fff; border-bottom:1px solid var(--linea); }
+.nav-int { max-width:1120px; margin:0 auto; padding:10px 22px; display:flex; align-items:center;
+  gap:4px; overflow-x:auto; white-space:nowrap; }
+.logo { font-size:13px; font-weight:800; color:var(--pizarra-osc); text-transform:uppercase;
+  letter-spacing:1.2px; margin-right:18px; }
+.logo i { font-style:normal; color:var(--naranja); }
+.pestana-nav { background:transparent; color:var(--gris); border:none; padding:10px 14px;
+  font-size:13px; font-weight:700; cursor:pointer; border-radius:7px; min-height:42px; }
+.pestana-nav:hover { color:var(--pizarra-osc); background:var(--fondo); }
+.pestana-nav.activa { color:var(--naranja); background:var(--naranja-suave); }
 
 /* vistas */
 .vista { display:none; }
 .vista.activa { display:block; }
 
+/* portada institucional */
+.portada { background:linear-gradient(165deg,#243447 0%,var(--pizarra-osc) 55%,#17293F 100%); color:#fff; }
+.portada-int { max-width:1120px; margin:0 auto; padding:52px 22px 44px; text-align:center; }
+.portada-kicker { font-size:15px; font-weight:800; letter-spacing:2.2px; text-transform:uppercase; }
+.portada-kicker2 { font-size:12.5px; font-weight:600; letter-spacing:2.6px; text-transform:uppercase;
+  color:#9FB3C8; margin-top:6px; }
+.portada h1 { font-size:27px; line-height:1.35; margin:26px auto 18px; max-width:860px; font-weight:700; }
+.portada-linea { width:74px; height:3px; background:var(--naranja); margin:0 auto 30px; }
+.portada-tarjetas { display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:760px; margin:0 auto; }
+.portada-tarjetas div { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14);
+  border-radius:10px; padding:13px 16px; text-align:left; }
+.portada-tarjetas span { display:block; font-size:10px; letter-spacing:1.6px; text-transform:uppercase;
+  color:#F9A86B; font-weight:800; margin-bottom:4px; }
+.portada-tarjetas b { font-size:13.5px; font-weight:600; color:#EEF4FA; }
+.portada-lugar { margin-top:28px; font-size:12px; letter-spacing:3px; font-weight:700; color:#9FB3C8; }
+
 /* botones */
 .boton { display:inline-block; background:var(--naranja); color:#fff; text-decoration:none;
-  padding:11px 22px; border-radius:9px; font-weight:700; font-size:14.5px;
-  box-shadow:0 3px 10px rgba(234,88,12,.3); border:none; cursor:pointer; }
+  padding:12px 22px; border-radius:8px; font-weight:700; font-size:14px;
+  box-shadow:0 3px 10px rgba(234,88,12,.28); border:none; cursor:pointer; min-height:44px; }
 .boton:hover { background:var(--naranja-claro); }
 .boton.hueso { background:#fff; color:var(--pizarra); border:1.5px solid var(--linea); box-shadow:none; }
 .boton.hueso:hover { border-color:var(--naranja); color:var(--naranja); }
 
-/* hero */
-.hero { background:linear-gradient(160deg,#fff 0%,var(--naranja-suave) 100%); border-bottom:1px solid var(--linea); }
-.hero-int { max-width:1120px; margin:0 auto; padding:50px 22px; display:grid;
-  grid-template-columns:1.1fr .9fr; gap:40px; align-items:center; }
-.chip { display:inline-block; background:#fff; color:var(--pizarra); border:1px solid var(--linea);
-  border-radius:999px; padding:5px 13px; font-size:12.5px; font-weight:700; margin:0 6px 6px 0; }
-.hero h1 { font-size:31px; line-height:1.24; margin:14px 0 12px; }
-.hero p.bajada { font-size:15.5px; color:var(--gris); line-height:1.65; margin-bottom:20px; }
-.hero-img { border-radius:16px; box-shadow:0 18px 44px rgba(30,41,59,.22); width:100%; display:block; }
+/* tarjetas romanas */
+.tarjetas-romanas { display:grid; grid-template-columns:1fr 1fr; gap:15px; margin-top:30px; }
+.tarjeta-romana { background:#fff; border:1px solid var(--linea); border-radius:13px; padding:24px;
+  text-align:left; cursor:pointer; transition:.15s; display:flex; gap:16px; }
+.tarjeta-romana:hover { border-color:var(--naranja); box-shadow:0 10px 26px rgba(234,88,12,.14); }
+.romano { flex:0 0 42px; height:42px; border-radius:50%; background:var(--pizarra-osc); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:800; }
+.tarjeta-romana .kicker { font-size:10px; letter-spacing:1.5px; text-transform:uppercase;
+  color:var(--naranja); font-weight:800; }
+.tarjeta-romana h3 { font-size:17px; margin:5px 0 7px; }
+.tarjeta-romana p { font-size:13px; color:var(--gris); line-height:1.6; }
+.tarjeta-romana .ir { margin-top:11px; color:var(--pizarra-osc); font-weight:800; font-size:12.5px; }
 
-/* stats */
-.stats { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin:30px auto 6px; }
-.stat { background:#fff; border:1px solid var(--linea); border-radius:13px; padding:18px 20px; }
-.stat b { display:block; font-size:22px; color:var(--naranja); }
-.stat span { font-size:12.5px; color:var(--gris); }
-
-/* volumen de datos */
-.volumen { display:grid; grid-template-columns:repeat(3,1fr); gap:13px; }
-.vol { background:#fff; border:1px solid var(--linea); border-left:4px solid var(--naranja);
-  border-radius:10px; padding:13px 16px; }
-.vol b { display:block; font-size:18px; color:var(--pizarra); }
-.vol span { font-size:11.5px; color:var(--gris); text-transform:uppercase; letter-spacing:.4px; font-weight:700; }
-
-/* botones grandes del inicio */
-.botones-grandes { display:grid; grid-template-columns:repeat(4,1fr); gap:15px; }
-.boton-grande { background:#fff; border:1px solid var(--linea); border-radius:14px; padding:22px 18px;
-  text-align:left; cursor:pointer; transition:.15s; }
-.boton-grande:hover { border-color:var(--naranja); box-shadow:0 8px 22px rgba(234,88,12,.18); transform:translateY(-2px); }
-.boton-grande .num-paso { display:inline-flex; width:30px; height:30px; border-radius:9px;
-  background:var(--naranja-suave); color:var(--naranja); align-items:center; justify-content:center;
-  font-size:13px; font-weight:800; margin-bottom:10px; }
-.boton-grande h3 { font-size:15.5px; margin-bottom:6px; }
-.boton-grande p { font-size:12.5px; color:var(--gris); line-height:1.55; }
-.boton-grande .ir { margin-top:10px; color:var(--naranja); font-weight:800; font-size:12.5px; }
+/* stats y volumen */
+.stats { display:grid; grid-template-columns:repeat(4,1fr); gap:15px; margin:30px auto 6px; }
+.stat { background:#fff; border:1px solid var(--linea); border-radius:12px; padding:18px 20px; }
+.stat b { display:block; font-size:21px; color:var(--naranja); }
+.stat span { font-size:12px; color:var(--gris); line-height:1.5; display:block; margin-top:3px; }
+.volumen { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+.vol { background:#fff; border:1px solid var(--linea); border-left:3px solid var(--naranja);
+  border-radius:9px; padding:12px 15px; }
+.vol b { display:block; font-size:16.5px; color:var(--pizarra); }
+.vol span { font-size:10.5px; color:var(--gris); text-transform:uppercase; letter-spacing:.6px; font-weight:800; }
 
 /* secciones */
-section, .bloque { padding:34px 0 8px; }
-h2.titulo { font-size:24px; margin-bottom:6px; }
-p.subtitulo { color:var(--gris); font-size:14.5px; line-height:1.6; margin-bottom:20px; max-width:820px; }
+.bloque { padding:34px 0 8px; }
+h2.titulo { font-size:23px; margin-bottom:6px; }
+.kicker-seccion { font-size:10.5px; letter-spacing:1.8px; text-transform:uppercase;
+  color:var(--naranja); font-weight:800; margin-bottom:8px; }
+p.subtitulo { color:var(--gris); font-size:14.5px; line-height:1.7; margin-bottom:20px; max-width:820px; }
 
 /* métricas */
-.rejilla-metricas { display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
-.tarjeta-metrica { background:#fff; border:1px solid var(--linea); border-radius:14px; padding:22px;
-  box-shadow:0 4px 14px rgba(30,41,59,.07); }
+.rejilla-metricas { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+.tarjeta-metrica { background:#fff; border:1px solid var(--linea); border-radius:13px; padding:22px; }
 .metrica-cab { display:flex; justify-content:space-between; align-items:center; }
-.metrica-cab h3 { font-size:17px; }
-.metrica-valor { font-size:33px; font-weight:800; color:var(--naranja); margin:10px 0 6px; }
-.metrica-valor span { font-size:15px; color:var(--gris); font-weight:600; margin-left:6px; }
-.metrica-def, .metrica-desc { font-size:13px; color:var(--gris); line-height:1.55; margin:8px 0; }
-.badge { display:inline-block; border-radius:999px; padding:4px 11px; font-size:11.5px; font-weight:800; }
+.metrica-cab h3 { font-size:16.5px; }
+.metrica-valor { font-size:32px; font-weight:800; color:var(--naranja); margin:10px 0 6px; }
+.metrica-valor span { font-size:14px; color:var(--gris); font-weight:600; margin-left:6px; }
+.metrica-def, .metrica-desc { font-size:12.5px; color:var(--gris); line-height:1.6; margin:8px 0; }
+.badge { display:inline-block; border-radius:6px; padding:4px 10px; font-size:10.5px;
+  font-weight:800; letter-spacing:.8px; }
 .badge.ok { background:var(--ok-fondo); color:var(--ok); }
 .badge.mal { background:var(--mal-fondo); color:var(--mal); }
 .tabla-chica { width:100%; border-collapse:collapse; margin:8px 0; }
-.tabla-chica th { text-align:left; font-size:11.5px; color:var(--gris); padding:5px 6px; }
+.tabla-chica th { text-align:left; font-size:11px; color:var(--gris); padding:5px 6px; }
 .tabla-chica td { font-size:12.5px; padding:5px 6px; border-top:1px solid var(--linea); }
 
 /* tarjetas y tablas */
-.tarjeta { background:#fff; border:1px solid var(--linea); border-radius:14px; padding:22px;
-  box-shadow:0 4px 14px rgba(30,41,59,.07); margin-bottom:18px; }
+.tarjeta { background:#fff; border:1px solid var(--linea); border-radius:13px; padding:22px; margin-bottom:18px; }
 .tabla { width:100%; border-collapse:collapse; font-size:13.5px; background:#fff; }
-.tabla th { background:var(--pizarra); color:#fff; text-align:left; padding:9px 11px; font-size:12.5px; }
-.tabla td { padding:8px 11px; border-bottom:1px solid var(--linea); }
+.tabla th { background:var(--pizarra); color:#fff; text-align:left; padding:10px 12px; font-size:11.5px;
+  letter-spacing:.5px; text-transform:uppercase; }
+.tabla td { padding:9px 12px; border-bottom:1px solid var(--linea); }
 .tabla tr:hover td { background:var(--naranja-suave); }
 .fila-ganadora td { background:#FFF3D6; }
 .fila-ganadora:hover td { background:#FFE9B0; }
-.envoltura { overflow-x:auto; border:1px solid var(--linea); border-radius:12px; }
+.envoltura { overflow-x:auto; border:1px solid var(--linea); border-radius:11px; -webkit-overflow-scrolling:touch; }
 
 /* figuras */
-.figuras { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
-.figura img { width:100%; border-radius:12px; border:1px solid var(--linea); display:block; background:#fff; }
-.figura p { font-size:12.5px; color:var(--gris); margin-top:7px; text-align:center; }
+.figuras { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.figura img { width:100%; border-radius:11px; border:1px solid var(--linea); display:block; background:#fff; }
+.figura p { font-size:12px; color:var(--gris); margin-top:7px; line-height:1.55; }
 
 /* mapa */
-.mapa-zona { display:grid; grid-template-columns:1.25fr .75fr; gap:20px; }
-.mapa-caja { background:#fff; border:1px solid var(--linea); border-radius:14px; padding:16px; position:relative; }
-svg.mapa { width:100%; height:auto; background:#FBFDFF; border-radius:10px; }
+.mapa-zona { display:grid; grid-template-columns:1.25fr .75fr; gap:18px; }
+.mapa-caja { background:#fff; border:1px solid var(--linea); border-radius:13px; padding:16px; position:relative; }
+svg.mapa { width:100%; height:auto; background:#FBFDFF; border-radius:9px; touch-action:manipulation; }
 .depto-path { fill:transparent; stroke:#fff; stroke-width:.07; cursor:pointer; pointer-events:all; }
-.depto-path:hover { fill:rgba(251,146,60,.45); }
-.depto-path.sel { fill:rgba(234,88,12,.55); stroke:var(--pizarra-osc); stroke-width:.14; }
+.depto-path:hover { fill:rgba(251,146,60,.35); stroke:var(--naranja); stroke-width:.12; }
+.depto-path.sel { fill:rgba(234,88,12,.22); stroke:var(--naranja); stroke-width:.22; }
 .depto-nom { font-size:.30px; fill:var(--pizarra-osc); font-weight:700; pointer-events:none;
-  text-anchor:middle; paint-order:stroke; stroke:#fff; stroke-width:.07; }
+  text-anchor:middle; paint-order:stroke; stroke:#fff; stroke-width:.08; }
 #tooltip-mapa { position:absolute; display:none; background:var(--pizarra-osc); color:#fff;
-  padding:9px 13px; border-radius:9px; font-size:12.5px; font-weight:600; pointer-events:none;
+  padding:9px 13px; border-radius:8px; font-size:12px; font-weight:600; pointer-events:none;
   box-shadow:0 8px 22px rgba(30,41,59,.35); z-index:6; white-space:nowrap; }
-#tooltip-mapa b { color:#FDBA74; }
-.leyenda { display:flex; gap:16px; flex-wrap:wrap; margin-top:12px; }
-.leyenda span { display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--gris); font-weight:700; }
-.leyenda i { width:14px; height:14px; border-radius:4px; display:inline-block; }
-.panel-datos .dato { display:flex; justify-content:space-between; border-bottom:1px solid var(--linea);
-  padding:9px 2px; font-size:13.5px; }
-.panel-datos .dato span { font-weight:800; color:var(--naranja); }
-.panel-datos .dato i { font-style:normal; color:var(--gris); font-weight:600; font-size:11.5px; }
-.clima-barras { display:flex; align-items:flex-end; gap:5px; height:110px; margin:14px 0 22px; }
-.clima-barras div { flex:1; background:var(--naranja-claro); border-radius:4px 4px 0 0; position:relative; min-height:4px; }
-.clima-barras span { position:absolute; bottom:-18px; left:0; right:0; text-align:center; font-size:9.5px; color:var(--gris); }
+#tooltip-mapa b { color:#F9A86B; }
+.leyenda { display:flex; gap:15px; flex-wrap:wrap; margin-top:12px; }
+.leyenda span { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--gris); font-weight:700; }
+.leyenda i { width:13px; height:13px; border-radius:3px; display:inline-block; }
+.panel-datos .dato { display:flex; justify-content:space-between; gap:12px; border-bottom:1px solid var(--linea);
+  padding:9px 2px; font-size:13px; }
+.panel-datos .dato span { font-weight:800; color:var(--naranja); text-align:right; }
+.panel-datos .dato i { font-style:normal; color:var(--gris); font-weight:600; font-size:11px; }
+.clima-barras { display:flex; align-items:flex-end; gap:5px; height:110px; margin:14px 0 24px; }
+.clima-barras div { flex:1; background:var(--naranja-claro); border-radius:3px 3px 0 0; position:relative; min-height:4px; }
+.clima-barras span { position:absolute; bottom:-17px; left:0; right:0; text-align:center; font-size:9px; color:var(--gris); }
 .proy-linea { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; font-size:11px; }
 .proy-linea div { background:var(--naranja-suave); border-radius:6px; padding:5px 4px; text-align:center; }
-.proy-linea b { display:block; color:var(--gris); font-size:10px; }
-.top-fila { display:flex; align-items:center; gap:10px; padding:7px 2px; cursor:pointer; border-bottom:1px solid var(--linea); }
+.proy-linea b { display:block; color:var(--gris); font-size:9.5px; }
+.top-fila { display:flex; align-items:center; gap:10px; padding:8px 2px; cursor:pointer; border-bottom:1px solid var(--linea); }
 .top-fila:hover .top-nom { color:var(--naranja); }
-.top-nom { width:118px; font-size:13px; font-weight:700; }
-.top-bar { height:14px; border-radius:4px; }
-.top-val { font-size:12px; color:var(--gris); font-weight:700; }
+.top-nom { width:118px; font-size:12.5px; font-weight:700; }
+.top-bar { height:13px; border-radius:3px; }
+.top-val { font-size:11.5px; color:var(--gris); font-weight:700; }
 
 /* ficha */
 .ficha-cab { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
-.ficha-cab div { background:var(--fondo); border:1px solid var(--linea); border-radius:9px; padding:10px 13px; }
-.ficha-cab b { display:block; font-size:10px; color:var(--gris); text-transform:uppercase; letter-spacing:.5px; }
-.ficha-cab span { font-size:13px; font-weight:700; }
+.ficha-cab div { background:var(--fondo); border:1px solid var(--linea); border-radius:8px; padding:10px 13px; }
+.ficha-cab b { display:block; font-size:9.5px; color:var(--gris); text-transform:uppercase; letter-spacing:.7px; }
+.ficha-cab span { font-size:12.5px; font-weight:700; }
 .pestanas { display:flex; gap:8px; margin:18px 0 12px; }
-.pestana { background:#fff; border:1.5px solid var(--linea); border-radius:8px; padding:8px 18px;
-  font-weight:800; font-size:13px; cursor:pointer; color:var(--gris); }
-.pestana.activa { background:var(--naranja); border-color:var(--naranja); color:#fff; }
+.pestana { background:#fff; border:1.5px solid var(--linea); border-radius:7px; padding:9px 18px;
+  font-weight:800; font-size:12.5px; cursor:pointer; color:var(--gris); min-height:42px; }
+.pestana.activa { background:var(--pizarra-osc); border-color:var(--pizarra-osc); color:#fff; }
 .dim { display:none; }
 .dim.activa { display:block; }
-.dim-tit { font-size:15.5px; font-weight:800; margin-bottom:6px; }
-.dim-form { font-family:Consolas, monospace; background:var(--pizarra-osc); color:#FDBA74;
-  border-radius:8px; padding:9px 13px; font-size:13px; margin:8px 0; }
-.dim-ind { font-size:12.5px; color:var(--gris); margin-bottom:10px; }
-.tabla-scroll { overflow-x:auto; }
-.tabla-ficha { width:100%; border-collapse:collapse; font-size:12px; min-width:760px; }
-.tabla-ficha th { background:var(--pizarra); color:#fff; padding:7px 9px; text-align:left; position:sticky; top:0; }
-.tabla-ficha td { padding:6px 9px; border-bottom:1px solid var(--linea); }
+.dim-tit { font-size:15px; font-weight:800; margin-bottom:6px; }
+.dim-form { font-family:Consolas, monospace; background:var(--pizarra-osc); color:#F9A86B;
+  border-radius:7px; padding:9px 13px; font-size:12.5px; margin:8px 0; }
+.dim-ind { font-size:12px; color:var(--gris); margin-bottom:10px; line-height:1.6; }
+.tabla-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.tabla-ficha { width:100%; border-collapse:collapse; font-size:11.5px; min-width:760px; }
+.tabla-ficha th { background:var(--pizarra); color:#fff; padding:8px 9px; text-align:left; font-size:10.5px;
+  text-transform:uppercase; letter-spacing:.5px; }
+.tabla-ficha td { padding:7px 9px; border-bottom:1px solid var(--linea); }
 .tabla-ficha tr:hover td { background:var(--naranja-suave); }
 
-/* proceso */
-.pasos { display:grid; grid-template-columns:repeat(5,1fr); gap:13px; }
-.paso { background:#fff; border:1px solid var(--linea); border-radius:13px; padding:18px 15px; }
-.paso b { display:block; color:var(--naranja); font-size:14.5px; margin-bottom:6px; }
-.paso p { font-size:12.5px; color:var(--gris); line-height:1.55; }
-.paso .num-paso { display:inline-flex; width:26px; height:26px; border-radius:50%; background:var(--pizarra);
-  color:#fff; align-items:center; justify-content:center; font-size:13px; font-weight:800; margin-bottom:9px; }
+/* KDD */
+.kdd { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; }
+.kdd-paso { background:#fff; border:1px solid var(--linea); border-top:3px solid var(--naranja);
+  border-radius:11px; padding:18px 15px; }
+.kdd-paso .etapa { font-size:9.5px; letter-spacing:1.4px; text-transform:uppercase;
+  color:var(--naranja); font-weight:800; }
+.kdd-paso b { display:block; font-size:14.5px; margin:5px 0 7px; }
+.kdd-paso p { font-size:12px; color:var(--gris); line-height:1.65; }
 
 /* fuentes / pie */
-.fuentes { font-size:13.5px; color:var(--gris); line-height:1.9; }
-.pie { margin-top:44px; background:var(--pizarra); color:#CBD5E1; padding:26px 0; font-size:13px; }
+.fuentes { font-size:13px; color:var(--gris); line-height:1.95; }
+.pie { margin-top:44px; background:var(--pizarra-osc); color:#B6C6D8; padding:26px 0; font-size:12.5px; }
+.pie b { color:#fff; }
 
-@media (max-width:900px) {
-  .hero-int, .mapa-zona, .figuras { grid-template-columns:1fr; }
-  .stats, .botones-grandes { grid-template-columns:repeat(2,1fr); }
-  .rejilla-metricas, .pasos, .volumen { grid-template-columns:1fr; }
+@media (max-width:980px) {
+  .mapa-zona, .figuras { grid-template-columns:1fr; }
+  .kdd { grid-template-columns:1fr 1fr; }
+}
+@media (max-width:760px) {
+  .portada-tarjetas, .tarjetas-romanas { grid-template-columns:1fr; }
+  .stats { grid-template-columns:1fr 1fr; }
+  .volumen { grid-template-columns:1fr 1fr; }
+  .rejilla-metricas { grid-template-columns:1fr; }
+  .portada h1 { font-size:21px; }
+  .portada-kicker { font-size:12.5px; letter-spacing:1.6px; }
   .ficha-cab { grid-template-columns:1fr; }
+  .kdd { grid-template-columns:1fr; }
+  .cont { padding:0 15px; }
 }
 """
 
@@ -409,7 +482,6 @@ function pintarDeptos() {
     p.setAttribute('data-nombre', d.nombre);
     p.addEventListener('click', ev => seleccionar(d.nombre, ev));
     g.appendChild(p);
-    // nombre del departamento sobre su geometría
     try {
       const bb = p.getBBox();
       const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
@@ -436,18 +508,19 @@ function mostrarTooltip(ev, nombre, s) {
   const caja = document.querySelector('#v-analisis .mapa-caja');
   const tt = document.getElementById('tooltip-mapa');
   const r = caja.getBoundingClientRect();
-  tt.innerHTML = `<b>${nombre}</b>: ${fmtN(s.media_mensual)} mm/mes &nbsp;(#${s.rank} nacional)`;
+  tt.innerHTML = `<b>${nombre}</b>: ${fmtN(s.media_mensual)} mm/mes · #${s.rank} nacional`;
   tt.style.display = 'block';
   tt.style.left = (ev.clientX - r.left) + 'px';
   tt.style.top = (ev.clientY - r.top) + 'px';
-  setTimeout(() => { tt.style.display = 'none'; }, 4500);
+  clearTimeout(window._ttT);
+  window._ttT = setTimeout(() => { tt.style.display = 'none'; }, 5000);
 }
 function seleccionar(nombre, ev) {
   document.querySelectorAll('.depto-path').forEach(p =>
     p.classList.toggle('sel', p.dataset.nombre === nombre));
   const s = DATOS.stats[nombre];
   if (ev) mostrarTooltip(ev, nombre, s);
-  document.getElementById('info-nombre').textContent = nombre + '  ·  #' + s.rank + ' nacional';
+  document.getElementById('info-nombre').textContent = nombre + ' · #' + s.rank + ' nacional';
   document.getElementById('info-region').textContent =
     s.celdas.toLocaleString('es-PE') + ' celdas de la malla · 1981–2025';
   document.getElementById('info-datos').innerHTML = `
@@ -467,7 +540,7 @@ function seleccionarNacional() {
   document.getElementById('info-region').textContent = 'Resumen nacional · 1981–2025';
   document.getElementById('info-datos').innerHTML = `
     <div class="dato"><b>Precipitación media mensual</b><span>${fmtN(n.media_mensual)} <i>mm/mes</i></span></div>
-    <div class="dato"><b>Modelo ganador</b><span style="font-size:13px">${n.ganador} <i>RMSE ${fmtN(n.rmse)} mm</i></span></div>
+    <div class="dato"><b>Modelo ganador</b><span style="font-size:12.5px">${n.ganador} · RMSE ${fmtN(n.rmse)} mm</span></div>
     <div class="dato"><b>MAE</b><span>${fmtN(n.mae)} <i>mm</i></span></div>
     <div class="dato"><b>R²</b><span>${fmtN(n.r2, 2)}</span></div>`;
   const mx = Math.max(...n.clim, 1);
@@ -500,7 +573,7 @@ PLANTILLA = """<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Precipitación Perú · Predicción con aprendizaje supervisado</title>
+<title>Comparación de algoritmos de regresión · Precipitación mensual en el Perú</title>
 <meta name="description" content="Comparación de algoritmos de regresión de aprendizaje supervisado para la predicción de la precipitación mensual en el Perú. PISCOp v3.0, 1981-2025.">
 <style>__CSS__</style>
 </head>
@@ -508,91 +581,101 @@ PLANTILLA = """<!DOCTYPE html>
 
 <nav class="nav">
   <div class="nav-int">
-    <span class="logo">🌧️ Precipitación Perú</span>
-    <button class="pestana-nav activa" data-vista="v-inicio" onclick="ver('v-inicio')">🏠 Inicio</button>
-    <button class="pestana-nav" data-vista="v-analisis" onclick="ver('v-analisis')">🗺️ Análisis regional</button>
-    <button class="pestana-nav" data-vista="v-ficha" onclick="ver('v-ficha')">📋 Ficha de registro</button>
-    <button class="pestana-nav" data-vista="v-metricas" onclick="ver('v-metricas')">📊 Métricas de calidad</button>
-    <button class="pestana-nav" data-vista="v-resultados" onclick="ver('v-resultados')">📈 Resultados</button>
+    <span class="logo">Precipitación <i>Perú</i></span>
+    <button class="pestana-nav activa" data-vista="v-inicio" onclick="ver('v-inicio')">Inicio</button>
+    <button class="pestana-nav" data-vista="v-analisis" onclick="ver('v-analisis')">Análisis regional</button>
+    <button class="pestana-nav" data-vista="v-ficha" onclick="ver('v-ficha')">Ficha de registro</button>
+    <button class="pestana-nav" data-vista="v-metricas" onclick="ver('v-metricas')">Métricas de calidad</button>
+    <button class="pestana-nav" data-vista="v-resultados" onclick="ver('v-resultados')">Resultados</button>
+    <button class="pestana-nav" data-vista="v-kdd" onclick="ver('v-kdd')">Proceso KDD</button>
   </div>
 </nav>
 
-<!-- ═══════════ VISTA 1 · INICIO ═══════════ -->
+<!-- ═══════════ INICIO · PORTADA INSTITUCIONAL ═══════════ -->
 <div class="vista activa" id="v-inicio">
-  <header class="hero">
-    <div class="hero-int">
-      <div>
-        <span class="chip">PISCOp v3.0 · 1981–2025</span>
-        <span class="chip">45 años de datos</span>
-        <span class="chip">6 algoritmos comparados</span>
-        <span class="chip">25 departamentos</span>
-        <h1>Comparación de algoritmos de regresión de aprendizaje supervisado para la predicción de la precipitación mensual en el Perú</h1>
-        <p class="bajada">Prototipo web de la investigación: presenta la data procesada y su volumen,
-        las métricas de desempeño con los umbrales de aceptación, el modelo ganador y el mapa
-        interactivo de la precipitación por departamento, junto con la proyección de 2026.</p>
-        <button class="boton" onclick="ver('v-metricas')">📊 Tablero de métricas</button>
-        &nbsp; <button class="boton hueso" onclick="ver('v-analisis')">🗺️ Explorar el mapa</button>
+  <header class="portada">
+    <div class="portada-int">
+      <p class="portada-kicker">Facultad de Ingeniería y Arquitectura</p>
+      <p class="portada-kicker2">Escuela Profesional de Ingeniería de Sistemas</p>
+      <h1>Comparación de algoritmos de regresión de aprendizaje supervisado para la predicción de la precipitación mensual en el Perú</h1>
+      <div class="portada-linea"></div>
+      <div class="portada-tarjetas">
+        <div><span>Autor</span><b>__AUTOR__</b></div>
+        <div><span>Asesor</span><b>__ASESOR__</b></div>
+        <div><span>Línea de investigación</span><span style="font-size:13.5px;letter-spacing:0;text-transform:none;color:#EEF4FA;font-weight:600;margin:0">__LINEA__</span></div>
+        <div><span>Fuente de datos</span><span style="font-size:13.5px;letter-spacing:0;text-transform:none;color:#EEF4FA;font-weight:600;margin:0">PISCOp v3.0 (SENAMHI) · 1981–2025 · 45 años</span></div>
       </div>
-      <div><img class="hero-img" src="__IMG_HERO__" alt="Precipitación en el Perú"></div>
+      <p class="portada-lugar">LIMA ESTE – PERÚ · 2026</p>
     </div>
   </header>
 
   <div class="cont">
+    <div class="tarjetas-romanas">
+      <button class="tarjeta-romana" onclick="ver('v-ficha')">
+        <div class="romano">I</div>
+        <div><div class="kicker">Diseño de investigación</div><h3>Ficha de registro</h3>
+        <p>Instrumento de recolección tal cual, con dimensiones, indicadores y 20 registros reales de la celda de Lima.</p>
+        <div class="ir">Abrir sección →</div></div>
+      </button>
+      <button class="tarjeta-romana" onclick="ver('v-metricas')">
+        <div class="romano">II</div>
+        <div><div class="kicker">Validación estadística</div><h3>Métricas de calidad</h3>
+        <p>MAE, RMSE y R² con umbrales de aceptación, líneas base y comparación objetiva de los modelos.</p>
+        <div class="ir">Abrir sección →</div></div>
+      </button>
+      <button class="tarjeta-romana" onclick="ver('v-resultados')">
+        <div class="romano">III</div>
+        <div><div class="kicker">Hallazgos predictivos</div><h3>Resultados de la investigación</h3>
+        <p>Los 4 algoritmos comparados, el modelo ganador y la proyección de la precipitación de 2026.</p>
+        <div class="ir">Abrir sección →</div></div>
+      </button>
+      <button class="tarjeta-romana" onclick="ver('v-analisis')">
+        <div class="romano">IV</div>
+        <div><div class="kicker">Inteligencia territorial</div><h3>Análisis regional</h3>
+        <p>Mapa del Perú, precipitación por departamento, ranking nacional y comportamiento histórico.</p>
+        <div class="ir">Abrir sección →</div></div>
+      </button>
+      <button class="tarjeta-romana" onclick="ver('v-kdd')">
+        <div class="romano">V</div>
+        <div><div class="kicker">Metodología</div><h3>Proceso KDD</h3>
+        <p>Las cinco etapas del descubrimiento de conocimiento aplicadas a los datos de precipitación.</p>
+        <div class="ir">Abrir sección →</div></div>
+      </button>
+    </div>
+
     <div class="stats">
       <div class="stat"><b>__N_VALIDOS__</b><span>registros celda-mes válidos procesados</span></div>
       <div class="stat"><b>__ANIOS__ años</b><span>de datos mensuales (1981–2025)</span></div>
-      <div class="stat"><b>R² __R2__</b><span>coeficiente de determinación del ganador</span></div>
+      <div class="stat"><b>R² __R2__</b><span>coeficiente de determinación del modelo ganador</span></div>
       <div class="stat"><b>__ESTADO__</b><span>veredicto de los umbrales de aceptación</span></div>
     </div>
 
     <div class="bloque">
-      <h2 class="titulo">📦 Volumen de datos procesados</h2>
-      <p class="subtitulo">Toda la investigación se construyó sobre este volumen de información real de la fuente PISCOp v3.0 (SENAMHI).</p>
+      <h2 class="titulo">Volumen de datos procesados</h2>
+      <p class="subtitulo">Toda la investigación se sustenta en este volumen de información real de la fuente PISCOp v3.0 (SENAMHI).</p>
       <div class="volumen">
         <div class="vol"><span>Fuente de datos</span><b>PISCOp v3.0 (SENAMHI)</b></div>
         <div class="vol"><span>Periodo cubierto</span><b>1981 – 2025 (__ANIOS__ años)</b></div>
         <div class="vol"><span>Meses registrados</span><b>__MESES_N__ meses</b></div>
         <div class="vol"><span>Malla de observación</span><b>__MALLA_DIM__</b></div>
-        <div class="vol"><span>Celda-mes en la malla</span><b>__MALLA__</b></div>
+        <div class="vol"><span>Registros celda-mes</span><b>__MALLA__</b></div>
         <div class="vol"><span>Registros válidos</span><b>__N_VALIDOS__ (__PCT__ %)</b></div>
         <div class="vol"><span>Entrenamiento</span><b>__TRAIN__ registros</b></div>
         <div class="vol"><span>Prueba</span><b>__TEST__ registros</b></div>
         <div class="vol"><span>Rango de precipitación</span><b>__MM_MIN__ – __MM_MAX__ mm</b></div>
       </div>
     </div>
-
-    <div class="bloque">
-      <h2 class="titulo">🧭 Explora la investigación en 4 botones</h2>
-      <p class="subtitulo">Cada botón abre la ventana correspondiente del prototipo.</p>
-      <div class="botones-grandes">
-        <button class="boton-grande" onclick="ver('v-ficha')">
-          <div class="num-paso">1</div><h3>📋 Ficha de registro</h3>
-          <p>El instrumento de recolección tal cual, con 20 registros reales de la celda de Lima.</p>
-          <div class="ir">Abrir →</div></button>
-        <button class="boton-grande" onclick="ver('v-analisis')">
-          <div class="num-paso">2</div><h3>🗺️ Análisis regional</h3>
-          <p>Mapa de calor interactivo: clic en un departamento y verás su precipitación y su puesto nacional.</p>
-          <div class="ir">Abrir →</div></button>
-        <button class="boton-grande" onclick="ver('v-metricas')">
-          <div class="num-paso">3</div><h3>📊 Métricas de calidad</h3>
-          <p>MAE, RMSE y R² con definición, umbral esperado, mi umbral y veredicto.</p>
-          <div class="ir">Abrir →</div></button>
-        <button class="boton-grande" onclick="ver('v-resultados')">
-          <div class="num-paso">4</div><h3>📈 Resultados</h3>
-          <p>Los 6 algoritmos comparados, el ganador destacado, las figuras y la proyección 2026.</p>
-          <div class="ir">Abrir →</div></button>
-      </div>
-    </div>
   </div>
 </div>
 
-<!-- ═══════════ VISTA 2 · ANÁLISIS REGIONAL ═══════════ -->
+<!-- ═══════════ ANÁLISIS REGIONAL ═══════════ -->
 <div class="vista" id="v-analisis">
   <div class="cont">
     <div class="bloque">
-      <h2 class="titulo">🗺️ Análisis regional — mapa de calor de la precipitación</h2>
-      <p class="subtitulo">Haz clic en un departamento del mapa: verás su precipitación media mensual,
-      su puesto nacional y todos sus datos procesados. Escala relativa en milímetros.</p>
+      <p class="kicker-seccion">IV · Inteligencia territorial</p>
+      <h2 class="titulo">Análisis regional — mapa de calor de la precipitación</h2>
+      <p class="subtitulo">Haz clic en un departamento del mapa para ver su precipitación media mensual,
+      su puesto nacional y sus datos procesados. La escala representa la precipitación media mensual en milímetros.</p>
       <div class="mapa-zona">
         <div class="mapa-caja">
           <div id="tooltip-mapa"></div>
@@ -602,25 +685,25 @@ PLANTILLA = """<!DOCTYPE html>
             <g id="capa-deptos"></g>
           </svg>
           <div class="leyenda">
-            <span><i style="background:#9A3412"></i> Muy lluvioso (&gt; 420 mm)</span>
+            <span><i style="background:#9A3412"></i> Muy lluvioso (más de 420 mm)</span>
             <span><i style="background:#EA580C"></i> Alto (260–420 mm)</span>
             <span><i style="background:#FDBA74"></i> Medio (140–260 mm)</span>
-            <span><i style="background:#FED7AA"></i> Bajo (&lt; 140 mm)</span>
+            <span><i style="background:#FED7AA"></i> Bajo (menos de 140 mm)</span>
             <span><i style="background:#F8FAFC;border:1px solid var(--linea)"></i> Sin datos</span>
           </div>
         </div>
         <div>
           <div class="mapa-caja panel-datos">
             <h3 id="info-nombre">Perú</h3>
-            <p id="info-region" style="font-size:12px;color:var(--gris);margin:4px 0 10px"></p>
+            <p id="info-region" style="font-size:11.5px;color:var(--gris);margin:4px 0 10px"></p>
             <div id="info-datos"></div>
-            <p style="font-size:12px;color:var(--gris);margin:14px 0 24px"><b>Climatología mensual (mm)</b></p>
+            <p style="font-size:11.5px;color:var(--gris);margin:14px 0 26px"><b>Climatología mensual (mm)</b></p>
             <div class="clima-barras" id="info-clim"></div>
-            <p style="font-size:12px;color:var(--gris);margin:14px 0 8px"><b>Proyección 2026 (mm)</b></p>
+            <p style="font-size:11.5px;color:var(--gris);margin:16px 0 8px"><b>Proyección 2026 (mm)</b></p>
             <div class="proy-linea" id="info-proy"></div>
           </div>
-          <div class="mapa-caja" style="margin-top:16px">
-            <p style="font-size:12.5px;color:var(--gris);margin-bottom:6px"><b>Top 5 departamentos más lluviosos</b> (clic para ver)</p>
+          <div class="mapa-caja" style="margin-top:15px">
+            <p style="font-size:12px;color:var(--gris);margin-bottom:6px"><b>Top 5 departamentos más lluviosos</b> (clic para ver)</p>
             <div id="info-top"></div>
           </div>
         </div>
@@ -628,7 +711,8 @@ PLANTILLA = """<!DOCTYPE html>
     </div>
 
     <div class="bloque">
-      <h2 class="titulo">📋 Resumen por departamento</h2>
+      <h2 class="titulo">Resumen por departamento</h2>
+      <p class="subtitulo">Los 25 departamentos ordenados por precipitación media mensual.</p>
       <div class="envoltura"><table class="tabla">
         <tr><th>Departamento</th><th class="num">Celdas</th><th class="num">Media mensual (mm)</th>
             <th class="num">Media anual (mm)</th><th>Mes más lluvioso</th>
@@ -639,7 +723,8 @@ PLANTILLA = """<!DOCTYPE html>
     </div>
 
     <div class="bloque">
-      <h2 class="titulo">📅 Climatología mensual por departamento (mm/mes, 1981–2025)</h2>
+      <h2 class="titulo">Climatología mensual por departamento</h2>
+      <p class="subtitulo">Precipitación media mensual en milímetros, promedio del periodo 1981–2025.</p>
       <div class="envoltura"><table class="tabla">
         <tr><th>Departamento</th>__MESES_TH__</tr>
         __TABLA_CLIM__
@@ -648,8 +733,8 @@ PLANTILLA = """<!DOCTYPE html>
 
     <div class="bloque">
       <div class="tarjeta">
-        <h3 style="margin-bottom:6px">⬇️ Descargar las tablas (CSV)</h3>
-        <p style="font-size:13px;color:var(--gris);margin-bottom:12px">Archivos con separador «;» para abrirse directamente en Excel.</p>
+        <h3 style="margin-bottom:6px">Descarga de tablas</h3>
+        <p style="font-size:12.5px;color:var(--gris);margin-bottom:13px">Archivos CSV con separador «;» para abrirse directamente en Excel.</p>
         <a class="boton hueso" href="descargas/01_departamentos.csv">Departamentos</a>
         <a class="boton hueso" href="descargas/02_climatologia_mensual.csv">Climatología mensual</a>
         <a class="boton hueso" href="descargas/03_modelos_comparados.csv">Modelos comparados</a>
@@ -660,11 +745,12 @@ PLANTILLA = """<!DOCTYPE html>
   </div>
 </div>
 
-<!-- ═══════════ VISTA 3 · FICHA DE REGISTRO ═══════════ -->
+<!-- ═══════════ FICHA DE REGISTRO ═══════════ -->
 <div class="vista" id="v-ficha">
   <div class="cont">
     <div class="bloque">
-      <h2 class="titulo">📋 Ficha de registro — instrumento de recolección</h2>
+      <p class="kicker-seccion">I · Diseño de investigación</p>
+      <h2 class="titulo">Ficha de registro — instrumento de recolección</h2>
       <p class="subtitulo">Instrumento de registro documental tal como se aplicó en la investigación,
       con 20 registros reales de la celda de Lima (lat −12,05°, lon −77,05°) entre 198201 y 198308.</p>
       <div class="tarjeta">
@@ -674,11 +760,12 @@ PLANTILLA = """<!DOCTYPE html>
   </div>
 </div>
 
-<!-- ═══════════ VISTA 4 · MÉTRICAS DE CALIDAD ═══════════ -->
+<!-- ═══════════ MÉTRICAS DE CALIDAD ═══════════ -->
 <div class="vista" id="v-metricas">
   <div class="cont">
     <div class="bloque">
-      <h2 class="titulo">📊 Métricas de calidad del modelo ganador</h2>
+      <p class="kicker-seccion">II · Validación estadística</p>
+      <h2 class="titulo">Métricas de calidad del modelo ganador</h2>
       <p class="subtitulo">Cada métrica se compara con su umbral esperado de aceptación.
       Los resultados provienen de la corrida del experimento sobre el conjunto de prueba.</p>
       <div class="rejilla-metricas">
@@ -689,11 +776,11 @@ PLANTILLA = """<!DOCTYPE html>
         <h3 style="margin-bottom:10px">Criterios de aceptación aplicados</h3>
         <div class="envoltura"><table class="tabla">
           <tr><th>Criterio</th><th>Umbral esperado</th><th class="num">Mi resultado</th><th>Estado</th></tr>
-          <tr><td>Relación MAE / MAE de la persistencia</td><td>&lt; 0,90</td>
+          <tr><td>Relación MAE / MAE de la persistencia</td><td>Menor que 0,90</td>
               <td class="num">__REL_MAE__</td><td>__BADGE_MAE__</td></tr>
-          <tr><td>Relación RMSE / RMSE de la persistencia</td><td>&lt; 0,90</td>
+          <tr><td>Relación RMSE / RMSE de la persistencia</td><td>Menor que 0,90</td>
               <td class="num">__REL_RMSE__</td><td>__BADGE_RMSE__</td></tr>
-          <tr><td>Coeficiente de determinación R²</td><td>≥ 0,75 (excelente)</td>
+          <tr><td>Coeficiente de determinación R²</td><td>Mayor o igual que 0,75 (excelente)</td>
               <td class="num">__R2__</td><td>__BADGE_R2__</td></tr>
         </table></div>
       </div>
@@ -714,13 +801,15 @@ PLANTILLA = """<!DOCTYPE html>
   </div>
 </div>
 
-<!-- ═══════════ VISTA 5 · RESULTADOS ═══════════ -->
+<!-- ═══════════ RESULTADOS ═══════════ -->
 <div class="vista" id="v-resultados">
   <div class="cont">
     <div class="bloque">
-      <h2 class="titulo">📈 Resultados de la investigación</h2>
-      <p class="subtitulo">Seis algoritmos de regresión de aprendizaje supervisado evaluados con las
-      mismas particiones de entrenamiento y prueba. El ganador está destacado.</p>
+      <p class="kicker-seccion">III · Hallazgos predictivos</p>
+      <h2 class="titulo">Resultados de la investigación</h2>
+      <p class="subtitulo">Cuatro algoritmos de regresión de aprendizaje supervisado evaluados con las
+      mismas particiones de entrenamiento y prueba: Regresión Ridge, Regresión KNN, Random Forest y XGBoost.
+      El modelo ganador está destacado.</p>
       <div class="envoltura"><table class="tabla">
         <tr><th>Modelo</th><th class="num">Obs. de entrenamiento</th><th class="num">MAE (mm)</th>
             <th class="num">RMSE (mm)</th><th class="num">R²</th>
@@ -729,8 +818,8 @@ PLANTILLA = """<!DOCTYPE html>
       </table></div>
 
       <div class="figuras" style="margin-top:18px">
-        <div class="figura"><img src="__IMG_BARRAS__" alt="Comparación de algoritmos">
-          <p>Comparación del error (RMSE) entre los algoritmos evaluados.</p></div>
+        <div class="figura"><img src="__IMG_BARRAS__" alt="Comparación de los 4 algoritmos">
+          <p>Comparación del error (RMSE) entre los cuatro algoritmos evaluados.</p></div>
         <div class="figura"><img src="__IMG_REGRESION__" alt="Recta de regresión del modelo ganador">
           <p>Valores predichos frente a observados del modelo ganador en el conjunto de prueba.</p></div>
       </div>
@@ -748,37 +837,66 @@ PLANTILLA = """<!DOCTYPE html>
       </div>
 
       <div class="figuras">
-        <div class="figura"><img src="__IMG_ERROR__" alt="Mapa de error">
+        <div class="figura"><img src="__IMG_ERROR__" alt="Distribución del error">
           <p>Distribución espacial del error de predicción (MAE) sobre la malla PISCOp.</p></div>
-        <div class="figura"><img src="__IMG_HERO__" alt="Precipitación media">
+        <div class="figura"><img src="__IMG_HERO__" alt="Precipitación media observada">
           <p>Precipitación media mensual observada sobre la malla PISCOp (1981–2025).</p></div>
       </div>
     </div>
 
     <div class="bloque">
-      <h2 class="titulo">⚙️ Proceso de procesamiento de datos</h2>
-      <p class="subtitulo">Flujo de trabajo basado en el proceso KDD (descubrimiento de conocimiento en bases de datos).</p>
-      <div class="pasos">
-        <div class="paso"><div class="num-paso">1</div><b>Selección</b>
-          <p>Se toma la fuente PISCOp v3.0: 540 meses de precipitación en malla de 0,1° sobre el Perú.</p></div>
-        <div class="paso"><div class="num-paso">2</div><b>Preprocesamiento</b>
-          <p>Se eliminan los valores sin dato (centinelas) y se consolidan los registros válidos de celda-mes.</p></div>
-        <div class="paso"><div class="num-paso">3</div><b>Transformación</b>
-          <p>Se construyen las variables de entrada y la etiqueta de precipitación del mes siguiente.</p></div>
-        <div class="paso"><div class="num-paso">4</div><b>Minería</b>
-          <p>Se entrenan seis algoritmos de regresión y se evalúan con las mismas particiones.</p></div>
-        <div class="paso"><div class="num-paso">5</div><b>Evaluación</b>
-          <p>Se comparan MAE, RMSE y R² frente a los umbrales y las líneas base, y se proyecta 2026.</p></div>
-      </div>
-    </div>
-
-    <div class="bloque">
-      <h2 class="titulo">📚 Fuentes de datos</h2>
+      <p class="kicker-seccion">Referencias</p>
+      <h2 class="titulo">Fuentes de datos</h2>
       <div class="tarjeta fuentes">
         <p><b>[1]</b> SENAMHI, «PISCOp v3.0: Producto Integrado de Precipitación a escala Nacional Compilado», Perú. [En línea]. Disponible en: http://hydro.chc.ucsb.edu/.</p>
         <p><b>[3]</b> C. Funk et al., «The climate hazards infrared precipitation with stations—a new environmental record for monitoring extremes», <i>Scientific Data</i>, vol. 2, 2015.</p>
-        <p style="margin-top:8px;font-size:12px">Los resultados mostrados provienen de la corrida del experimento sobre PISCOp v3.0.
+        <p style="margin-top:8px;font-size:11.5px">Los resultados mostrados provienen de la corrida del experimento sobre PISCOp v3.0.
         El prototipo se actualizará en el futuro con la fuente CHIRPS v2.0.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ PROCESO KDD ═══════════ -->
+<div class="vista" id="v-kdd">
+  <div class="cont">
+    <div class="bloque">
+      <p class="kicker-seccion">V · Metodología</p>
+      <h2 class="titulo">Proceso KDD — descubrimiento de conocimiento en bases de datos</h2>
+      <p class="subtitulo">El procesamiento de la información siguió las cinco etapas del proceso KDD.
+      A continuación se describe qué se hizo en cada etapa con los datos de precipitación.</p>
+      <div class="kdd">
+        <div class="kdd-paso"><div class="etapa">Etapa 1</div><b>Selección</b>
+          <p>Se definió la fuente PISCOp v3.0 (SENAMHI) y el periodo 1981–2025, con 540 meses de
+          precipitación en malla de 0,1° sobre el territorio nacional. Se formularon las preguntas de
+          predicción y se eligieron los cuatro algoritmos de regresión supervisada.</p></div>
+        <div class="kdd-paso"><div class="etapa">Etapa 2</div><b>Preprocesamiento</b>
+          <p>Se identificaron y eliminaron los valores centinela (sin dato) del archivo NetCDF.
+          De una malla total de __MALLA__ registros celda-mes se consolidaron __N_VALIDOS__
+          registros válidos (__PCT__ % del total).</p></div>
+        <div class="kdd-paso"><div class="etapa">Etapa 3</div><b>Transformación</b>
+          <p>Se construyó la variable objetivo (precipitación del mes siguiente) y las variables de
+          entrada de las dimensiones D1, D2 y D3 del instrumento. Se generaron las particiones de
+          entrenamiento (__TRAIN__ registros) y prueba (__TEST__ registros).</p></div>
+        <div class="kdd-paso"><div class="etapa">Etapa 4</div><b>Minería</b>
+          <p>Se entrenaron los cuatro algoritmos de la tesis (Regresión Ridge, Regresión KNN,
+          Random Forest y XGBoost) sobre las observaciones de entrenamiento, con evaluación común
+          sobre la muestra de prueba.</p></div>
+        <div class="kdd-paso"><div class="etapa">Etapa 5</div><b>Evaluación e interpretación</b>
+          <p>Se calcularon MAE, RMSE y R², se compararon con las líneas base de persistencia y
+          climatología frente a los umbrales de aceptación, se seleccionó el modelo ganador y se
+          proyectó la precipitación de 2026.</p></div>
+      </div>
+
+      <div class="tarjeta" style="margin-top:20px">
+        <h3 style="margin-bottom:8px">Del archivo fuente al conocimiento</h3>
+        <p class="subtitulo" style="margin-bottom:0">El archivo fuente PISCOp_m.nc contiene 540 mapas
+        mensuales de precipitación (uno por cada mes de enero de 1981 a diciembre de 2025) organizados en
+        una malla de __MALLA_DIM__. Cada celda de la malla representa un área de aproximadamente 10 km
+        de lado. El proceso transformó esos mapas en __N_VALIDOS__ registros válidos de celda-mes,
+        los cuales alimentaron el entrenamiento de los algoritmos y la selección del modelo ganador
+        que hoy sostiene la proyección de la precipitación de 2026 y el análisis regional por
+        departamento.</p>
       </div>
     </div>
   </div>
@@ -786,10 +904,11 @@ PLANTILLA = """<!DOCTYPE html>
 
 <footer class="pie">
   <div class="cont">
-    <p><b>Precipitación Perú</b> — prototipo web de la tesis «Comparación de algoritmos de regresión de
-    aprendizaje supervisado para la predicción de la precipitación mensual en el Perú».</p>
-    <p style="margin-top:6px">Universidad César Vallejo · Datos PISCOp v3.0 (SENAMHI) [1] · CHIRPS [3] ·
-    __ANIOS__ años de datos · __N_VALIDOS__ registros válidos procesados.</p>
+    <p><b>Comparación de algoritmos de regresión de aprendizaje supervisado para la predicción de la
+    precipitación mensual en el Perú</b></p>
+    <p style="margin-top:6px">Universidad César Vallejo · Sede Lima Este · Escuela Profesional de Ingeniería de Sistemas ·
+    Datos PISCOp v3.0 (SENAMHI) [1] · CHIRPS [3]</p>
+    <p style="margin-top:6px">__ANIOS__ años de datos · __N_VALIDOS__ registros válidos procesados · 4 algoritmos comparados</p>
   </div>
 </footer>
 
@@ -807,19 +926,19 @@ __JS_MAPA__
 tarjeta_mae = tarjeta_metrica(
     "MAE", num(GAN["mae"], 2), "mm",
     "Error absoluto medio: promedio del error entre la precipitación predicha y la observada.",
-    f"Relación MAE/MAE de la persistencia &lt; {num(umbral_rel_mae, 2)}",
+    f"Relación MAE/MAE de la persistencia menor que {num(umbral_rel_mae, 2)}",
     num(GAN["rel_mae"], 2), ok_mae,
     "El modelo reduce el error en más de la mitad frente a la persistencia (mes anterior).")
 tarjeta_rmse = tarjeta_metrica(
     "RMSE", num(GAN["rmse"], 2), "mm",
     "Raíz del error cuadrático medio: penaliza con mayor fuerza los errores grandes.",
-    f"Relación RMSE/RMSE de la persistencia &lt; {num(umbral_rel_rmse, 2)}",
+    f"Relación RMSE/RMSE de la persistencia menor que {num(umbral_rel_rmse, 2)}",
     num(GAN["rel_rmse"], 2), ok_rmse,
     "El modelo supera claramente a la persistencia también en los eventos extremos.")
 tarjeta_r2 = tarjeta_metrica(
     "R²", num(GAN["r2"], 2), "",
     "Coeficiente de determinación: proporción de la variabilidad de la lluvia explicada por el modelo.",
-    f"R² ≥ {num(umbral_r2, 2)} (nivel excelente)",
+    f"R² mayor o igual que {num(umbral_r2, 2)} (nivel excelente)",
     num(GAN["r2"], 2), ok_r2,
     "Casi 8 de cada 10 puntos de variación de la precipitación mensual quedan explicados.")
 
@@ -829,11 +948,14 @@ html = (PLANTILLA
         .replace("__DATOS__", json.dumps(DATOS, ensure_ascii=False, separators=(",", ":")))
         .replace("__IMG_HERO__", b64("hero_precipitacion.png"))
         .replace("__IMG_RASTER__", b64("raster_lluvia.png"))
-        .replace("__IMG_BARRAS__", b64("barras_algoritmos.png"))
+        .replace("__IMG_BARRAS__", grafico_barras_4(MODELOS, GAN))
         .replace("__IMG_REGRESION__", b64("regresion_linea.png"))
         .replace("__IMG_PROY__", b64("serie_proyeccion.png"))
         .replace("__IMG_ERROR__", b64("mapa_error.png"))
         .replace("__FICHA__", FICHA_HTML)
+        .replace("__AUTOR__", AUTOR)
+        .replace("__ASESOR__", ASESOR)
+        .replace("__LINEA__", LINEA)
         .replace("__TARJETA_MAE__", tarjeta_mae)
         .replace("__TARJETA_RMSE__", tarjeta_rmse)
         .replace("__TARJETA_R2__", tarjeta_r2)
@@ -853,7 +975,7 @@ html = (PLANTILLA
         .replace("__MM_MIN__", num(R["mm_min"], 2))
         .replace("__MM_MAX__", num(R["mm_max"], 2))
         .replace("__R2__", num(GAN["r2"], 2))
-        .replace("__ESTADO__", "✅ Todos los umbrales" if TODO_OK else "⚠️ Ver tabla")
+        .replace("__ESTADO__", "Todos los umbrales" if TODO_OK else "Ver tabla")
         .replace("__GAN_NOMBRE__", GAN["nombre"])
         .replace("__GAN_MAE__", num(GAN["mae"], 2))
         .replace("__GAN_RMSE__", num(GAN["rmse"], 2))
@@ -873,8 +995,9 @@ ruta = os.path.join(D_OUT, "index.html")
 with open(ruta, "w", encoding="utf-8") as f:
     f.write(html)
 
-print(f"✅ Sitio generado: {ruta}")
-print(f"   Tamaño: {os.path.getsize(ruta)/1024:.0f} KB · vistas: 5 (pestañas)")
-print(f"   Ficha registros: {'OK' if 'tabla-ficha' in html else 'FALTA'} · tooltip mapa: {'OK' if 'tooltip-mapa' in html else 'FALTA'}")
-print(f"   Umbrales -> MAE {GAN['rel_mae']:.2f} {'✓' if ok_mae else '✗'} | "
-      f"RMSE {GAN['rel_rmse']:.2f} {'✓' if ok_rmse else '✗'} | R² {GAN['r2']:.2f} {'✓' if ok_r2 else '✗'}")
+print(f"Sitio generado: {ruta}")
+print(f"Tamano: {os.path.getsize(ruta)/1024:.0f} KB · vistas: 6")
+print(f"Algoritmos (4): {[m['nombre'] for m in MODELOS]}")
+print(f"Ganador: {GAN['nombre']} · MAE {GAN['mae']:.2f} · RMSE {GAN['rmse']:.2f} · R2 {GAN['r2']:.3f}")
+print(f"Umbrales -> MAE {GAN['rel_mae']:.2f} {'OK' if ok_mae else 'X'} | "
+      f"RMSE {GAN['rel_rmse']:.2f} {'OK' if ok_rmse else 'X'} | R2 {GAN['r2']:.2f} {'OK' if ok_r2 else 'X'}")

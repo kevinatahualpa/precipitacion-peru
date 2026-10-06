@@ -8,5 +8,6 @@ Registros validos;15782040
 Porcentaje valido;79.98 %
 Conjunto de entrenamiento;11573496
 Conjunto de prueba;3857832
+Algoritmos comparados;Regresion Ridge, Regresion KNN, Random Forest, XGBoost
 Minimo observado (mm);0.0
 Maximo observado (mm);6153.58
