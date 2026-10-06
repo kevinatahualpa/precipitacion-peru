@@ -116,6 +116,11 @@ canvas{display:block;width:100%}
 .kv tr:last-child td{border-bottom:0}
 .kv .full b{color:var(--accent-2);font-weight:700}
 .mapA{background:#0A1120;border:1px solid var(--line);border-radius:8px}
+/* 01 · RECOLECCIÓN DE DATOS — columna única estricta en escritorio (idéntica a móvil) */
+@media (min-width:641px){
+  .zbody.z1{grid-template-columns:1fr;gap:12px}
+  .zbody.z1>.srcbar{width:100%;display:flex;align-items:center;justify-content:center}
+}
 .gd{fill:var(--accent);opacity:0}
 .zone.on .gd{opacity:.95;transition:opacity .45s ease var(--d)}
 .maplab{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.08em;fill:var(--text-3)}
@@ -269,7 +274,7 @@ canvas{display:block;width:100%}
         <div class="band">01 · RAW DATA</div>
         <div class="main">
           <h2 class="zhead">RECOLECCIÓN DE DATOS</h2>
-          <div class="zbody">
+          <div class="zbody z1">
             <div class="photo">
               <svg viewBox="0 0 260 140" role="img" aria-label="Ilustración de un satélite y una estación pluviométrica">
                 <rect width="260" height="140" fill="#0E1729"/>
