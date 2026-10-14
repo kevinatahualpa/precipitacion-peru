@@ -31,16 +31,19 @@ const DATOS = {
     universidad: "Universidad César Vallejo",
     sede: "Sede Lima Este",
     linea: "Sistemas de Información y Comunicaciones",
-    dataset: "PISCOp v3.0 (SENAMHI) · 1981–2025",
+    dataset: "PISCOp v3.0 (SENAMHI) · 1982–2025",
     chip: "PISCOp v3.0",
-    periodo: "1981–2025"
+    periodo: "1982–2025"
   },
 
-  /* ── 2 · Resumen del experimento ── */
+  /* ── 2 · Resumen del experimento ──
+     Conteos verificados directamente sobre features.parquet:
+     29 226 celdas × 528 meses = 15 431 328 observaciones (1982–2025),
+     partidas en train (≤ 2014) y test (> 2014). */
   resumen: {
-    registros: 15782040,
+    registros: 15431328,
     test: 3857832,
-    train: 11924208,
+    train: 11573496,
     malla: "210 × 174 celdas",
     resolucion: "0,1°"
   },
@@ -302,16 +305,20 @@ const DATOS = {
      Cinco zonas apiladas en fila, con la estética de docs/flow.html
      (banda vertical, barra de título, paneles internos y flechas),
      reordenadas en vertical para que quepan dentro de la sección.
-     TODAS las cifras provienen de resultsALL (corrida del experimento):
-     features.parquet, metrics_test.csv, metrics_knnfaiss.csv,
-     baseline_persistencia.csv, cv_results.csv, dm_matrix_full.csv,
-     wilcoxon_matrix_full.csv y recalculo_local/.
-     Ajustes frente a docs/flow.html, cuyos números eran de otra corrida:
-       · TRAIN 11 573 496  ->  11 924 208  (408 meses × 29 226 celdas)
+     TODAS las cifras provienen de resultsALL (corrida del experimento),
+     verificadas contra features.parquet: 29 226 celdas × 528 meses
+     (1982–2025) = 15 431 328 observaciones; train 11 573 496 y test
+     3 857 832 al partir por anio > 2014.
+     Las métricas de las zonas 03 y 04 corresponden a la configuración
+     full (10 dimensiones: lat, lon, mes_sin, mes_cos, μ, σ y los
+     rezagos P_lag1, P_lag2, P_lag3 y P_lag12).
+     Ajustes frente a docs/flow.html:
        · RMSE Ridge 74,23  ->  74,73 ; RF 75,82 -> 75,38 ; XGB 75,17 -> 76,29
        · KNN 79,95         ->  KNN-FAISS 81,22
        · R² 0,80           ->  0,797
-       · Resolución ≈10 km ->  ≈11 km (0,1° en el ecuador)
+       · El TRAIN de flow.html (11 573 496) era correcto: el periodo
+         arranca en 1982, no en 1981, por lo que son 396 meses de
+         entrenamiento y 528 en total.
        · Se elimina el diagrama de dispersión con «puntos ilustrativos»,
          por no ser defendible ante el tribunal.
      No se copia la cabecera institucional de flow.html: ya vive en la
@@ -320,26 +327,25 @@ const DATOS = {
 
     /* Zona 01 · Recolección — tabla de parámetros de la fuente */
     fuente: { sigla: "PISCOp v3.0", org: "SENAMHI" },
-    /* 19 731 600 = 210 × 174 × 540: celdas de la malla por los meses del
-       periodo. Es el máximo teórico; la zona 02 muestra cuántas quedan
-       con dato válido tras la depuración. */
-    mallaTeorica: 19731600,
+    /* 29 226 × 528 = 15 431 328: celdas con dato por los meses del
+       periodo. Es el total de observaciones efectivamente usadas. */
+    registros: 15431328,
     kv: [
-      ["Periodo", "1981–2025 (45 años) · 540 meses"],
-      ["Malla", "210 × 174 celdas"],
-      ["Resolución", "0,1° (≈ 11 km)"]
+      ["Periodo", "1982–2025 (44 años) · 528 meses"],
+      ["Malla", "210 × 174 celdas · 29 226 con dato"],
+      ["Resolución", "0,1° (≈ 10 km)"]
     ],
 
-    /* Zona 02 · ETL — depuración y partición.
-       19 731 600 = 210 × 174 × 540 (malla completa del periodo).
-       15 782 040 son las celdas con dato válido: 79,98 % del total. */
+    /* Zona 02 · ETL — depuración de celdas y partición.
+       La malla teórica tiene 210 × 174 = 36 540 celdas; quedan 29 226
+       con dato válido (79,98 %). Cada una conserva los 528 meses. */
     etl: {
-      bruto: 19731600,
-      valido: 15782040,
+      bruto: 36540,
+      valido: 29226,
       pct: 79.98,
       procesos: ["Limpieza de centinelas", "Variables lags 1 · 2 · 3 · 12", "Partición train / test"],
-      train: 11924208,
-      trainMeses: "1981–2014 · 408 meses",
+      train: 11573496,
+      trainMeses: "1982–2014 · 396 meses",
       test: 3857832,
       testMeses: "2015–2025 · 132 meses"
     },
@@ -356,9 +362,12 @@ const DATOS = {
 
     /* Zona 04 · Evaluación — métricas del modelo ganador y sus umbrales.
        rel = métrica del modelo / métrica de la persistencia.
-       Umbrales: rel MAE y rel RMSE < 0,90 · R² ≥ 0,75. */
+       Umbrales: rel MAE y rel RMSE < 0,90 · R² ≥ 0,75.
+       Se rotula la configuración porque la corrida probó tres: base
+       (4 dimensiones), clim (6) y full (10); estas métricas son de full. */
     evaluacion: {
       modelo: "Regresión Ridge",
+      config: "config. full · 10 dimensiones",
       metricas: [
         { sigla: "MAE",  valor: "48,29 mm", rel: "0,47", nota: "rel. vs persistencia (102,16 mm)", cumple: true },
         { sigla: "RMSE", valor: "74,73 mm", rel: "0,49", nota: "rel. vs persistencia (152,00 mm)", cumple: true },
@@ -377,7 +386,7 @@ const DATOS = {
         "Los 4 algoritmos superaron los umbrales de aceptación y la línea base de persistencia (102,16 mm).",
         "El modelo final sustenta la proyección 2026 y el análisis regional de los 25 departamentos."
       ],
-      pie: "Datos: PISCOp v3.0 (SENAMHI) · 1981–2025 · 15 782 040 registros válidos · cifras de la corrida del experimento"
+      pie: "Datos: PISCOp v3.0 (SENAMHI) · 1982–2025 · 15 431 328 registros · cifras de la corrida del experimento"
     }
   },
 
@@ -2057,7 +2066,7 @@ html[data-tema="oscuro"] .kband{color:var(--gold-2)}
           '<div class="kzbody">' +
             '<div class="ksrcbar">' + esc(K.fuente.sigla) + " <small>(" + esc(K.fuente.org) + ")</small></div>" +
             '<table class="kkv">' + kvFilas +
-              '<tr><td colspan="2" class="total">' + fmtInt(K.mallaTeorica) + " registros celda-mes</td></tr>" +
+              '<tr><td colspan="2" class="total">' + fmtInt(K.registros) + " registros celda-mes</td></tr>" +
             "</table>" +
           "</div>" +
         "</div>" +
@@ -2084,9 +2093,9 @@ html[data-tema="oscuro"] .kband{color:var(--gold-2)}
               "</div>" +
             "</div>" +
             '<div class="kstat">' +
-              '<div class="ksb"><b>' + fmtInt(E.bruto) + "</b><span>celdas-mes de la malla</span></div>" +
+              '<div class="ksb"><b>' + fmtInt(E.bruto) + "</b><span>celdas de la malla teórica</span></div>" +
               '<span class="ksarrow" aria-hidden="true">▸</span>' +
-              '<div class="ksb"><b>' + fmtInt(E.valido) + "</b><span>válidas (" + fmt(E.pct, 2) + " %)</span></div>" +
+              '<div class="ksb"><b>' + fmtInt(E.valido) + "</b><span>con dato válido (" + fmt(E.pct, 2) + " %)</span></div>" +
             "</div>" +
             '<div class="kstrip">Procesos aplicados</div>' +
             '<div class="kproc">' + procesos + "</div>" +
@@ -2129,7 +2138,9 @@ html[data-tema="oscuro"] .kband{color:var(--gold-2)}
           '<h2 class="kzhead"><span>Modelos de regresión supervisada</span></h2>' +
           '<div class="kzbody">' +
             '<div class="kmodels">' + modelos + "</div>" +
-            '<p class="kextra">Las barras se escalan contra la <b>línea base de persistencia</b> (' +
+            '<p class="kextra">Configuración <b>full</b> — 10 dimensiones: ubicación, mes del año, ' +
+              "climatología de la celda (μ y σ) y rezagos 1 · 2 · 3 · 12. Las barras se escalan " +
+              'contra la <b>línea base de persistencia</b> (' +
               fmt(RMSE_BASE, 2) + " mm de RMSE): cada modelo la reduce aproximadamente a la mitad.</p>" +
           "</div>" +
         "</div>" +
@@ -2152,7 +2163,7 @@ html[data-tema="oscuro"] .kband{color:var(--gold-2)}
         '<div class="kmain">' +
           '<h2 class="kzhead"><span>Resultados</span></h2>' +
           '<div class="kzbody">' +
-            '<div class="kstrip">Métricas · ' + esc(EV.modelo) + "</div>" +
+            '<div class="kstrip">Métricas · ' + esc(EV.modelo) + " · " + esc(EV.config) + "</div>" +
             '<div class="kmt">' + filas + "</div>" +
             '<div class="kverdict">' + esc(EV.veredicto) + "</div>" +
             '<p class="kextra"><b>' + esc(EV.skill) + "</b><br>" + esc(EV.significancia) + "</p>" +
