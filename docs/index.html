@@ -1361,7 +1361,9 @@ html[data-tema="oscuro"] .kband{color:var(--gold-2)}
           <h2>Métricas de calidad</h2>
           <p>Indicadores de error y de explicación de la varianza calculados sobre el conjunto
              de prueba. Cada métrica se contrasta con su umbral de aceptación definido en la
-             investigación.</p>
+             investigación: el valor grande de cada tarjeta es la métrica en sus unidades
+             (milímetros o R²) y la relación contra la persistencia es la cantidad que se
+             compara con el umbral.</p>
         </div>
 
         <div class="tira-resumen">
@@ -1369,6 +1371,7 @@ html[data-tema="oscuro"] .kband{color:var(--gold-2)}
           <span class="estado-ok" id="met-estado">Umbrales cumplidos</span>
         </div>
 
+        <div class="pills" id="met-pills" role="tablist" aria-label="Algoritmo evaluado"></div>
         <div class="tarjetas-metricas" id="met-tarjetas"></div>
         <div class="tabla-marco tabla-res" style="margin-top:18px">
           <table>
@@ -1750,13 +1753,41 @@ html[data-tema="oscuro"] .kband{color:var(--gold-2)}
   }
 
   /* ---------- 6.7 · Métricas ---------- */
+  var metSel = null;    /* algoritmo seleccionado en la sección 02 */
+  var metPillsListo = false;
+
   function pintarMetricas() {
+    if (!metSel) metSel = GANADOR;
+
+    /* Selector de algoritmo: una pestaña por modelo del experimento. */
+    $("#met-pills").innerHTML = DATOS.modelos.map(function (m, i) {
+      var on = m.modelo === metSel.modelo;
+      return '<button class="pill' + (on ? " activa" : "") + '" type="button" role="tab" ' +
+             'aria-selected="' + on + '" data-i="' + i + '">' + esc(m.modelo) +
+             (m.modelo === GANADOR.modelo ? " · ganador" : "") + "</button>";
+    }).join("");
+    if (!metPillsListo) {
+      metPillsListo = true;
+      $("#met-pills").addEventListener("click", function (e) {
+        var b = e.target.closest ? e.target.closest(".pill") : null;
+        if (!b) return;
+        metSel = DATOS.modelos[Number(b.getAttribute("data-i"))];
+        pintarMetricas();
+      });
+    }
+
     var cumpleTotal = 0;
     $("#met-tarjetas").innerHTML = DATOS.metricas.map(function (m) {
-      var valor = GANADOR[m.clave];
-      var medidor = GANADOR[m.medidor];
+      var valor = metSel[m.clave];
+      var medidor = metSel[m.medidor];
       var cumple = m.op === "<" ? (medidor < m.umbralNum) : (medidor >= m.umbralNum);
       if (cumple) cumpleTotal++;
+      /* En MAE y RMSE el valor grande va en mm y el umbral se compara contra la
+         relación con la persistencia: se muestran los dos, con su etiqueta. */
+      var obtenido = m.medidor === m.clave
+        ? fmt(medidor, m.decMedidor)
+        : fmt(valor, m.dec) + (m.unidad ? " " + esc(m.unidad) : "") +
+          " · relación " + fmt(medidor, m.decMedidor);
       return '' +
         '<article class="met-card">' +
           '<div class="met-head">' +
@@ -1768,17 +1799,17 @@ html[data-tema="oscuro"] .kband{color:var(--gold-2)}
           '<p class="met-def">' + esc(m.def) + "</p>" +
           '<div class="met-umbral">' +
             '<div class="mu"><span>Umbral de aceptación</span><b>' + esc(m.umbral) + "</b></div>" +
-            '<div class="mu"><span>Resultado obtenido</span><b class="destacado">' +
-              fmt(medidor, m.decMedidor) + "</b></div>" +
+            '<div class="mu"><span>Resultado obtenido · ' + esc(metSel.modelo) + "</span>" +
+              '<b class="destacado">' + obtenido + "</b></div>" +
           "</div>" +
         "</article>";
     }).join("");
 
     var n = DATOS.metricas.length;
-    $("#met-resumen").innerHTML = "Evaluación del modelo ganador <b>" + esc(GANADOR.modelo) +
-      "</b> sobre el conjunto de prueba de <b>" + fmtInt(DATOS.resumen.test) + "</b> observaciones" +
+    $("#met-resumen").innerHTML = "Algoritmo evaluado: <b>" + esc(metSel.modelo) +
+      "</b>, sobre el conjunto de prueba de <b>" + fmtInt(DATOS.resumen.test) + "</b> observaciones" +
       (DATOS.resumen.train ? ", con <b>" + fmtInt(DATOS.resumen.train) + "</b> registros de entrenamiento" : "") +
-      ". La tabla inferior contrasta cada umbral con los cuatro algoritmos del experimento.";
+      ". Use las pestañas para cambiar de algoritmo; la tabla inferior contrasta cada umbral con los cuatro.";
     $("#met-estado").textContent = cumpleTotal + " de " + n + " umbrales cumplidos";
     $("#met-estado").style.display = cumpleTotal === n ? "" : "none";
 
@@ -1794,7 +1825,7 @@ html[data-tema="oscuro"] .kband{color:var(--gold-2)}
       var nOk = DATOS.metricas.filter(function (k) {
         return k.op === "<" ? m[k.medidor] < k.umbralNum : m[k.medidor] >= k.umbralNum;
       }).length;
-      return "<tr" + (m.modelo === GANADOR.modelo ? ' class="ganador"' : "") + "><td>" +
+      return "<tr" + (m.modelo === metSel.modelo ? ' class="ganador"' : "") + "><td>" +
         esc(m.modelo) + "</td>" + celdas +
         '<td class="num">' + nOk + " de " + DATOS.metricas.length + "</td></tr>";
     }).join("");
@@ -1803,7 +1834,7 @@ html[data-tema="oscuro"] .kband{color:var(--gold-2)}
       "(se repite el último mes observado)" +
       (base ? ": <b>MAE " + fmt(base.mae) + " mm · RMSE " + fmt(base.rmse) +
               " mm · R² " + fmt(base.r2, 4) + "</b>." : ".") +
-      " El modelo ganador se seleccionó por el menor RMSE y el mayor R² del experimento." +
+      " El distintivo «ganador» corresponde al algoritmo de menor RMSE y mayor R² del experimento." +
       (DATOS.dominio ?
         " <b>Dominio de evaluación:</b> las métricas se calculan sobre las " +
         fmtInt(DATOS.dominio.celdas) + " celdas con dato válido del dominio PISCOp, que incluye " +
