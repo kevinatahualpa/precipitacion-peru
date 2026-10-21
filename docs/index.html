@@ -759,6 +759,13 @@ html[data-tema="oscuro"] .estado-ok{background:rgba(62,196,138,.12);border-color
   background:rgba(31,157,99,.12);border:1px solid rgba(31,157,99,.4);color:var(--green);
 }
 .met-chip.no{background:rgba(214,68,68,.1);border-color:rgba(214,68,68,.4);color:#d64444}
+.um-chip{
+  display:inline-block;margin-left:8px;padding:1px 7px;border-radius:99px;
+  font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  background:rgba(31,157,99,.12);border:1px solid rgba(31,157,99,.4);color:var(--green);
+  white-space:nowrap;
+}
+.um-chip.no{background:rgba(214,68,68,.1);border-color:rgba(214,68,68,.4);color:#d64444}
 .met-nombre{font-size:12.5px;color:var(--text-2);margin-top:3px;min-height:34px}
 .met-valor{
   font-size:38px;font-weight:600;letter-spacing:-.02em;color:var(--text);
@@ -1363,6 +1370,17 @@ html[data-tema="oscuro"] .kband{color:var(--gold-2)}
         </div>
 
         <div class="tarjetas-metricas" id="met-tarjetas"></div>
+        <div class="tabla-marco tabla-res" style="margin-top:18px">
+          <table>
+            <thead>
+              <tr>
+                <th>Algoritmo</th><th>MAE / MAE pers.</th><th>RMSE / RMSE pers.</th>
+                <th>R²</th><th>Umbrales cumplidos</th>
+              </tr>
+            </thead>
+            <tbody id="met-tbody"></tbody>
+          </table>
+        </div>
         <p class="nota-pie" id="met-nota"></p>
       </div>
 
@@ -1390,7 +1408,7 @@ html[data-tema="oscuro"] .kband{color:var(--gold-2)}
           <table>
             <thead>
               <tr>
-                <th>Modelo</th><th>Tiempo de entren.</th><th>MAE (mm)</th><th>RMSE (mm)</th>
+                <th>Modelo</th><th>MAE (mm)</th><th>RMSE (mm)</th>
                 <th>R²</th><th>Δ RMSE vs. ganador</th><th>Estado</th>
               </tr>
             </thead>
@@ -1759,9 +1777,27 @@ html[data-tema="oscuro"] .kband{color:var(--gold-2)}
     var n = DATOS.metricas.length;
     $("#met-resumen").innerHTML = "Evaluación del modelo ganador <b>" + esc(GANADOR.modelo) +
       "</b> sobre el conjunto de prueba de <b>" + fmtInt(DATOS.resumen.test) + "</b> observaciones" +
-      (DATOS.resumen.train ? ", con <b>" + fmtInt(DATOS.resumen.train) + "</b> registros de entrenamiento" : "") + ".";
+      (DATOS.resumen.train ? ", con <b>" + fmtInt(DATOS.resumen.train) + "</b> registros de entrenamiento" : "") +
+      ". La tabla inferior contrasta cada umbral con los cuatro algoritmos del experimento.";
     $("#met-estado").textContent = cumpleTotal + " de " + n + " umbrales cumplidos";
     $("#met-estado").style.display = cumpleTotal === n ? "" : "none";
+
+    /* Umbrales de aceptación aplicados a cada uno de los cuatro algoritmos. */
+    var orden = DATOS.modelos.slice().sort(function (a, b) { return a.mae - b.mae; });
+    $("#met-tbody").innerHTML = orden.map(function (m) {
+      var celdas = DATOS.metricas.map(function (k) {
+        var med = m[k.medidor];
+        var ok = k.op === "<" ? med < k.umbralNum : med >= k.umbralNum;
+        return '<td class="num">' + fmt(med, k.decMedidor) +
+          '<span class="um-chip' + (ok ? "" : " no") + '">' + (ok ? "Cumple" : "No cumple") + "</span></td>";
+      }).join("");
+      var nOk = DATOS.metricas.filter(function (k) {
+        return k.op === "<" ? m[k.medidor] < k.umbralNum : m[k.medidor] >= k.umbralNum;
+      }).length;
+      return "<tr" + (m.modelo === GANADOR.modelo ? ' class="ganador"' : "") + "><td>" +
+        esc(m.modelo) + "</td>" + celdas +
+        '<td class="num">' + nOk + " de " + DATOS.metricas.length + "</td></tr>";
+    }).join("");
     var base = DATOS.persistencia;
     $("#met-nota").innerHTML = "Las relaciones se calculan frente a la línea base de persistencia " +
       "(se repite el último mes observado)" +
@@ -1813,7 +1849,6 @@ html[data-tema="oscuro"] .kband{color:var(--gold-2)}
         var esGanador = m.modelo === GANADOR.modelo;
         return '<tr class="' + (esGanador ? "ganador" : "") + '">' +
           "<td>" + esc(m.modelo) + (esGanador ? '<span class="etq-ganador">Ganador</span>' : "") + "</td>" +
-          '<td class="num" title="' + fmt(m.tiempo, 1) + ' s">' + esc(fmtTiempo(m.tiempo)) + "</td>" +
           '<td class="num">' + fmt(m.mae) + "</td>" +
           '<td class="num">' + fmt(m.rmse) + "</td>" +
           '<td class="num">' + fmt(m.r2, 4) + "</td>" +
@@ -1826,7 +1861,6 @@ html[data-tema="oscuro"] .kband{color:var(--gold-2)}
     if (base) {
       filas.push('<tr class="fila-base">' +
         "<td>" + esc(base.nombre) + '<span class="etq-base">Línea base</span></td>' +
-        '<td class="num">—</td>' +
         '<td class="num">' + fmt(base.mae) + "</td>" +
         '<td class="num">' + fmt(base.rmse) + "</td>" +
         '<td class="num">' + fmt(base.r2, 4) + "</td>" +
@@ -1999,7 +2033,7 @@ html[data-tema="oscuro"] .kband{color:var(--gold-2)}
         '<stop offset="0%" stop-color="#1f6feb" stop-opacity="0.34"/>' +
         '<stop offset="100%" stop-color="#1f6feb" stop-opacity="0.02"/>' +
       "</linearGradient></defs>" +
-      ejes + etiquetas +
+      ejes + etiquetas + meses +
       '<line class="gl-eje" x1="' + ML + '" y1="' + base + '" x2="' + (W - MR) + '" y2="' + base + '"/>' +
       '<path class="gl-area" d="' + area + '"/>' +
       '<path class="gl-linea" d="' + linea + '"/>' +
