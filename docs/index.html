@@ -1706,7 +1706,7 @@ html[data-tema="oscuro"] .kband{color:var(--gold-2)}
       $("#mapa-titulo").textContent = "Precipitación esperada · " + mesLargoNum(MES_ACTIVO.mes) + " " + MES_ACTIVO.anio;
       $("#mapa-subtitulo").textContent = "Predicción con la normal climática 1981–2014. Pase el cursor sobre un departamento para ver su ficha.";
       $("#leyenda-tit").textContent = "Precipitación esperada (mm/mes)";
-      $("#mapa-fuente").innerHTML = "Fuente: normal climática 1981–2014<br>10 665 celdas terrestres del Perú";
+      $("#mapa-fuente").innerHTML = "Fuente: normal climática 1981–2014<br>10 665 celdas terrestres (máscara departamental)";
     } else {
       $("#mapa-titulo").textContent = "Precipitación media mensual por departamento · " + DATOS.tesis.periodo;
       $("#mapa-subtitulo").textContent = "Pase el cursor sobre un departamento para ver su ficha; pulse para fijar la selección.";
@@ -1966,7 +1966,8 @@ html[data-tema="oscuro"] .kband{color:var(--gold-2)}
       (DATOS.dominio ?
         " <b>Dominio de evaluación:</b> las métricas se calculan sobre las " +
         fmtInt(DATOS.dominio.celdas) + " celdas con dato válido del dominio PISCOp, que incluye " +
-        "área adyacente al Perú. Sobre el territorio peruano —" + fmtInt(DATOS.dominio.obsPeru) +
+        "área adyacente al Perú. Sobre las " + fmtInt(DATOS.dominio.celdasPeru) +
+        " celdas estrictamente dentro del territorio peruano —" + fmtInt(DATOS.dominio.obsPeru) +
         " observaciones, " + fmt(DATOS.dominio.fracPeru, 1) + " % de la muestra— el modelo ganador " +
         "alcanza <b>MAE " + fmt(DATOS.dominio.maePeru) + " mm · RMSE " + fmt(DATOS.dominio.rmsePeru) +
         " mm · R² " + fmt(DATOS.dominio.r2Peru, 3) + "</b> y un skill frente a la persistencia de <b>" +
