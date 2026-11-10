@@ -12,7 +12,7 @@ FUENTE ÚNICA DE VERDAD
       wilcoxon_matrix_full.csv       p de Wilcoxon (config. full)
       features.parquet               conteos y min/máx de P
   TESIS-PRECIPITACION/05_PRODUCTO_ANEXOS/recalculo_espacial/salida_sitio.json
-      dominio (Perú), MAE por departamento y proyección 2026
+      dominio (Perú), MAE por departamento y predicción 2026–2027 (normal climática)
       (generado por recalcular_espacial_final.py con controles aprobados)
 
 NADA SE ESCRIBE A MANO EN EL HTML: todos los números salen de los CSV/JSON.
@@ -22,6 +22,7 @@ NO confundir con motor/generar_sitio.py, que genera el sitio v3 anterior
 
 Uso:  /tmp/opencode/venv/bin/python motor/actualizar_panel.py
 """
+import collections
 import csv
 import json
 import os
@@ -36,6 +37,8 @@ DESC = os.path.join(RAIZ, "docs", "descargas")
 RESULTS = "/home/rusitos/Documents/RESULTADOS KAGGLE/results"
 SALIDA = ("/home/rusitos/Documents/Proyecto predeterminado/TESIS-PRECIPITACION/"
           "05_PRODUCTO_ANEXOS/recalculo_espacial/salida_sitio.json")
+CLIM_CSV = ("/home/rusitos/Documents/Proyectitos/results/2027/"
+            "precipitacion_2027_por_celda.csv")
 
 NOMBRES = {"Ridge": "Regresión Ridge", "RF": "Random Forest",
            "XGB": "XGBoost", "KNNFAISS": "KNN-FAISS (HNSW)"}
@@ -43,6 +46,40 @@ TRAIN = 11573496                    # 29 226 celdas x 396 meses (1982-2014)
 N_CELDAS, N_MESES_TEORICAS = 210 * 174, 528
 MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun",
          "Jul", "Ago", "Set", "Oct", "Nov", "Dic"]
+
+PANEL_DEPTS = ["Amazonas", "Apurímac", "Arequipa", "Ayacucho", "Cajamarca",
+               "Callao", "Cusco", "Huancavelica", "Huánuco", "Ica", "Junín",
+               "La Libertad", "Lambayeque", "Lima", "Loreto", "Madre de Dios",
+               "Moquegua", "Pasco", "Piura", "Puno", "San Martín", "Tacna",
+               "Tumbes", "Ucayali", "Áncash"]
+MAP_DEPT = {"Áncash": "Ancash"}
+
+
+def _cargar_clim():
+    rows = list(csv.DictReader(open(CLIM_CSV, encoding="utf-8")))
+    sums = collections.defaultdict(lambda: collections.defaultdict(float))
+    counts = collections.defaultdict(lambda: collections.defaultdict(int))
+    for r in rows:
+        d = r["departamento"]
+        m = int(r["mes"])
+        v = float(r["mu_mm"])
+        sums[d][m] += v
+        counts[d][m] += 1
+    mensual = {}
+    for d in PANEL_DEPTS:
+        src = MAP_DEPT.get(d, d)
+        mensual[d] = [round(sums[src][m] / counts[src][m], 2) for m in range(1, 13)]
+    ns = collections.defaultdict(float)
+    nc = collections.defaultdict(int)
+    for r in rows:
+        m = int(r["mes"])
+        ns[m] += float(r["mu_mm"])
+        nc[m] += 1
+    nacional = [round(ns[m] / nc[m], 2) for m in range(1, 13)]
+    return mensual, nacional
+
+
+MENSUAL_CLIM, NACIONAL_CLIM = _cargar_clim()
 
 cambios = []
 
@@ -77,7 +114,7 @@ for r in wx.itertuples():
     par_p[r.par]["w"] = float(r.p)
 
 sal = json.load(open(SALIDA, encoding="utf-8"))
-DOM, DEP, PROY = sal["dominio"], sal["mae_por_departamento"], sal["proyeccion_2026_ridge"]
+DOM, DEP = sal["dominio"], sal["mae_por_departamento"]
 
 gan = full["RF"]                       # ganador: menor RMSE y mayor R²
 assert gan.RMSE == min(r.RMSE for r in full.values()), "RF no es el de menor RMSE"
@@ -129,7 +166,7 @@ cab_nueva = f"""<!-- ═══════════════════�
        · baseline_persistencia.csv → línea base de referencia
        · dm_matrix_full.csv / wilcoxon_matrix_full.csv → significancia
        · preds_RF_full.npy        → error del ganador por celda y departamento
-       · model_Ridge_full.joblib  → proyección 2026 (Regresión Ridge)
+       · precipitacion_2027_por_celda.csv → predicción 2026–2027 (normal climática)
        · 05_PRODUCTO_ANEXOS/recalculo_espacial/ → dominio y departamentos
          (controles aprobados: MAE {m['RF']['mae']:.4f} · RMSE {m['RF']['rmse']:.4f} · R² {m['RF']['r2']:.4f})
      ══════════════════════════════════════════════════════════════ -->"""
@@ -201,23 +238,44 @@ mod_nuevo = f"""  /* ── 5 · Algoritmos comparados (conjunto de prueba, conf
 reemplaza_patron(r"  /\* ── 5 · Algoritmos comparados[\s\S]*?\n  \],",
                  mod_nuevo, "bloque modelos")
 
-# ── E · proyección: rotular el modelo que la calcula ──
-proy_nuevo = """  /* ── 6 · Proyección nacional 2026 (mm/mes) ──
-     Recalculada con 05_PRODUCTO_ANEXOS/recalcular_espacial_final.py:
-     Regresión Ridge (config. full), predicción recursiva mes a mes con los
-     lags observados hasta 2025. El error por departamento sí es del ganador
-     (Random Forest); esta serie usa el pipeline Ridge conservado, cuyas
-     predicciones coinciden con las de la corrida final hasta 2,4 × 10⁻⁴ mm.
-     Se promedia SOLO sobre las celdas dentro del territorio peruano
-     (9 963 celdas); total anual 1 832 mm por celda. */
-  proyeccion: {
-    anio: "2026",
-    modelo: "la Regresión Ridge","""
-if 'modelo: "la Regresión Ridge",' in txt:
-    print("  · proyección (rotular modelo): ya estaba actualizado")
+# ── E · predicción 2026–2027: normal climática mensual ──
+def _js_mensual():
+    lineas = ["const MENSUAL_CLIM = {"]
+    for d in PANEL_DEPTS:
+        lineas.append('  "' + d + '": [' + ", ".join(f"{v:.2f}" for v in MENSUAL_CLIM[d]) + "],")
+    lineas.append("};")
+    return "\n".join(lineas)
+
+
+mensual_js = _js_mensual()
+if "const MENSUAL_CLIM" in txt:
+    txt = re.sub(r"const MENSUAL_CLIM = \{[\s\S]*?\};\n", mensual_js + "\n", txt, count=1)
 else:
-    reemplaza_patron(r'  /\* ── 6 · Proyección nacional 2026[\s\S]*?anio: "2026",',
-                     proy_nuevo, "proyección (rotular modelo)")
+    txt = txt.replace("const DATOS = {", mensual_js + "\n\nconst DATOS = {", 1)
+
+serie = "\n".join(f'      {{ mes: "{m}", mm: {v:.2f} }},' for m, v in zip(MESES, NACIONAL_CLIM))
+proy_block = f"""  /* ── 6 · Predicción nacional 2026–2027 (mm/mes) ──
+     Normal climática mensual (μ) de 1981–2014, calculada sobre las
+     10 665 celdas terrestres del Perú. 2026 y 2027 comparten el mismo
+     valor esperado porque el método no incorpora tendencia interanual. */
+  proyeccion: {{
+    anio: "2026–2027",
+    modelo: "la normal climática 1981–2014",
+    serie: [
+{serie}
+    ]
+  }},
+
+  /* ── 6b · Predicción mensual por departamento (2026 y 2027) ──
+     Valores de μ(c,m) para cada departamento y mes. 2026 y 2027 son
+     idénticos porque usan la misma normal climática. */
+  mensual: {{ "2026": MENSUAL_CLIM, "2027": MENSUAL_CLIM }},
+
+"""
+pat = re.compile(r"  /\* ── 6 · Predicción nacional 2026–2027[\s\S]*?\n  mensual: \{ \"2026\": MENSUAL_CLIM, \"2027\": MENSUAL_CLIM \},\n\n")
+assert pat.search(txt), "bloque proyección no encontrado"
+txt = pat.sub(proy_block, txt, count=1)
+cambios.append("predicción 2026–2027 (climatología)")
 
 # ── F · departamentos: comentario del bloque ──
 dep_com = """  /* ── 7 · Departamentos: precipitación media y geometría del mapa ──
@@ -227,7 +285,7 @@ dep_com = """  /* ── 7 · Departamentos: precipitación media y geometría d
         mmMes   : mm registrados en ese mes
         mae     : error absoluto medio del GANADOR, Random Forest (mm)
         celdas  : celdas PISCOp que lo componen
-        proy    : proyección 2026 con la Regresión Ridge (mm/mes)
+        proy    : predicción 2026–2027 con la normal climática (mm/mes)
         d       : contorno del departamento en coordenadas lon,lat (grados)   */"""
 reemplaza_patron(r"  /\* ── 7 · Departamentos[\s\S]*?\*/", dep_com,
                  "comentario departamentos")
@@ -287,7 +345,7 @@ z5_nuevo = f"""    reporte: {{
       conclusiones: [
         "Random Forest obtuvo el mejor desempeño en MAE, RMSE y R² ({es(g['mae'])} mm, {es(g['rmse'])} mm y {es(g['r2'], 3)}).",
         "Los 4 algoritmos superaron los umbrales de aceptación y la línea base de persistencia ({es(B_MAE)} mm).",
-        "La proyección 2026 y el análisis regional de los 25 departamentos se calcularon con la Regresión Ridge ({es(m['Ridge']['mae'])} mm de MAE)."
+        "La predicción 2026–2027 y el análisis regional de los 25 departamentos se calcularon con la normal climática 1981–2014."
       ],
       pie: "Datos: PISCOp v3.0 (SENAMHI) · 1982–2025 · 15 431 328 registros · cifras de la corrida final (12/12 experimentos)"
     }}"""
@@ -299,21 +357,18 @@ reemplaza_texto(
     '  pie: "Panel demostrativo · resultados definitivos de la corrida final (12/12 experimentos)"',
     "pie del panel")
 
-# ── L · prosa de la proyección: modelo exacto ──
-reemplaza_texto(
-    '''    $("#proy-intro").textContent = "Precipitación media nacional proyectada mes a mes para el año " +
-      DATOS.proyeccion.anio + " con el modelo ganador " + GANADOR.modelo + ".";''',
-    '''    $("#proy-intro").textContent = "Precipitación media nacional proyectada mes a mes para el año " +
+# ── L · prosa de la predicción: normal climática ──
+if "Precipitación media nacional esperada para 2026 y 2027" not in txt:
+    reemplaza_texto(
+        '''    $("#proy-intro").textContent = "Precipitación media nacional proyectada mes a mes para el año " +
       DATOS.proyeccion.anio + " con " + esc(DATOS.proyeccion.modelo ||
         ("el modelo ganador " + GANADOR.modelo)) + ".";''',
-    "proy-intro (modelo)")
+        '''    $("#proy-intro").textContent = "Precipitación media nacional esperada para 2026 y 2027 con la normal climática 1981–2014.";''',
+        "proy-intro (climatología)")
 
-# ── M · tooltip del mapa: rotular MAE y proyección ──
-reemplaza_texto('["MAE del modelo", fmt(d.mae) + " mm"]',
-                '["MAE del ganador", fmt(d.mae) + " mm"]',
-                "tooltip MAE")
-reemplaza_texto('Proyección 2026: <b>', 'Proyección 2026 (Ridge): <b>',
-                "tooltip proyección")
+# ── M · tooltip del mapa (ya usa la predicción 2026–2027) ──
+# La ficha y el tooltip se actualizan desde DATOS.mensual; no requieren
+# reemplazos de texto aquí.
 
 # ── N · «dimensiones» de configuración → «variables» ──
 reemplaza_texto("full (10 dimensiones: lat, lon, mes_sin, mes_cos, μ, σ y los",
@@ -358,7 +413,7 @@ assert len(deps) == 25, f"departamentos leídos: {len(deps)}"
 csv_write("01_departamentos.csv",
           ["Departamento", "Celdas", "Media mensual (mm)", "Media anual (mm)",
            "Mes mas lluvioso", "mm en ese mes", "MAE (mm)",
-           "Proyeccion 2026 media (mm/mes)"],
+           "Prediccion 2026-2027 media (mm/mes)"],
           sorted([[n, celdas, mm, anual, mes, mmMes, mae, proy]
                   for n, mm, anual, mes, mmMes, mae, celdas, proy, _d in deps]))
 
@@ -371,10 +426,10 @@ csv_write("03_modelos_comparados.csv",
             round(m[k]["relmae"], 4), round(m[k]["relrmse"], 4)]
            for k in sorted(m, key=lambda k: m[k]["mae"])])
 
-# 04 · proyección 2026 (serie nacional del panel: solo celdas peruanas)
-csv_write("04_proyeccion_2026.csv",
-          ["Mes", "Precipitacion media nacional (mm)"],
-          [[f"2026-{i:02d}", p["mm"]] for i, p in enumerate(PROY, 1)])
+# 04 · predicción 2026–2027 (normal climática nacional)
+csv_write("04_prediccion_2026_2027.csv",
+          ["Mes", "Precipitacion media nacional (mm)", "Periodo"],
+          [[m, round(v, 2), "2026 y 2027"] for m, v in zip(MESES, NACIONAL_CLIM)])
 
 # 05 · resumen ETL (periodo y conteos reales de features.parquet)
 P = pd.read_parquet(os.path.join(RESULTS, "features.parquet"), columns=["P"])["P"]
