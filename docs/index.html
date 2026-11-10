@@ -1764,21 +1764,23 @@ html[data-tema="oscuro"] .kband{color:var(--gold-2)}
     if (!d) return;
     var v = valorDepto(d);
     $("#fd-nombre").textContent = d.n;
+    var mesAct = MES_ACTIVO ? mesLargoNum(MES_ACTIVO.mes).toLowerCase() : "";
     $("#fd-rango").textContent = "#" + puestos[d.n] + " de " + DATOS.departamentos.length +
-      (MES_ACTIVO ? " en precipitación esperada" : " en precipitación media");
+      (MES_ACTIVO ? " en precipitación esperada · " + mesAct : " en precipitación media");
     $("#fd-grid").innerHTML = [
-      [MES_ACTIVO ? "Precipitación esperada" : "Media mensual", fmt(v) + " mm"],
-      ["Media anual", fmt(MES_ACTIVO ? promMensual(d.n) * 12 : d.anual) + " mm"],
-      ["Mes más lluvioso", mesLargo(d.mes)],
+      [MES_ACTIVO ? "Precipitación esperada · " + mesAct : "Media mensual",
+       fmt(v) + (MES_ACTIVO ? " mm/mes" : " mm")],
+      [MES_ACTIVO ? "Total anual esperado" : "Media anual",
+       fmt(MES_ACTIVO ? promMensual(d.n) * 12 : d.anual) + (MES_ACTIVO ? " mm/año" : " mm")],
+      [MES_ACTIVO ? "Mes más lluvioso (histórico)" : "Mes más lluvioso", mesLargo(d.mes)],
       ["MAE del ganador", fmt(d.mae) + " mm"]
     ].map(function (x) {
       return '<div class="fd-dato"><span>' + esc(x[0]) + "</span><b>" + esc(x[1]) + "</b></div>";
     }).join("");
     $("#fd-nota").innerHTML = "Celdas PISCOp: <b>" + fmtInt(d.celdas) +
-      "</b> · Mes más lluvioso: <b>" + fmt(d.mmMes) + " mm</b><br>" +
-      (MES_ACTIVO
-        ? "Predicción 2027 (climatología): <b>" + fmt(v) + " mm/mes</b>"
-        : "Predicción 2027 (climatología): <b>" + fmt(promMensual(d.n)) + " mm/mes</b>");
+      "</b> · Mes más lluvioso histórico: <b>" + fmt(d.mmMes) + " mm</b>" +
+      (MES_ACTIVO ? "" :
+        "<br>Predicción 2027 (climatología): <b>" + fmt(promMensual(d.n)) + " mm/mes</b>");
   }
 
   function maxTira() {
