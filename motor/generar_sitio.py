@@ -22,9 +22,23 @@ import json
 import math
 import os
 import re
+import sys
 
 import numpy as np
 from PIL import Image
+
+# ──────────────── GENERADOR LEGADO — NO EJECUTAR SIN LEER ───────────────────
+# Este script produce el antiguo sitio «v3 gris/naranja» y SOBRESCRIBE
+# docs/index.html, que ahora aloja el panel definitivo de la tesis (el cual se
+# actualiza con motor/actualizar_panel.py a partir de los CSV de la corrida
+# final 12/12). Si de verdad quieres regenerar el sitio v3 a propósito:
+#     python3 motor/generar_sitio.py --restaurar-v3
+if "--restaurar-v3" not in sys.argv:
+    sys.exit("⛔ motor/generar_sitio.py es LEGADO (sitio v3): sobrescribiría "
+             "docs/index.html, el panel definitivo de la tesis.\n"
+             "   El panel se actualiza con motor/actualizar_panel.py.\n"
+             "   Para regenerar el sitio v3 a propósito: "
+             "python3 motor/generar_sitio.py --restaurar-v3")
 
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TESIS = os.path.abspath(os.path.join(os.path.dirname(RAIZ), "..", "TESIS-PRECIPITACION", "10_SOFTWARE_PRESENTACION"))
@@ -142,10 +156,12 @@ FICHA_HTML = bloque[:bloque.rfind(FIN_TABLA) + len(FIN_TABLA)]
 
 # ── los 4 algoritmos de la tesis ──
 MAPA_ALGOS = {
-    "Ridge": "Regresión Ridge",
-    "KNN (k = 7)": "Regresión KNN",
+    # El JSON reconstruido ya usa los nombres oficiales de la tesis; el mapa
+    # se conserva como capa de indirección por si se reutiliza con otro JSON.
+    "Regresión Ridge": "Regresión Ridge",
     "Random Forest": "Random Forest",
-    "Gradient Boosting": "XGBoost",
+    "XGBoost": "XGBoost",
+    "KNN-FAISS": "KNN-FAISS",
 }
 por_nombre = {m["nombre"]: m for m in R["resultados"]}
 MODELOS = []
@@ -168,7 +184,7 @@ PCT_VALIDOS = R["validos"] / R["malla_total"] * 100
 N_LAT = R["lat"] if isinstance(R.get("lat"), int) else len(R.get("lat", [0] * 210))
 N_LON = R["lon"] if isinstance(R.get("lon"), int) else len(R.get("lon", [0] * 174))
 N_CELDAS = N_LAT * N_LON
-ANIOS = 2025 - 1981 + 1
+ANIOS = 2025 - 1982 + 1     # 44 años modelables (1981 solo construye rezagos)
 
 # ───────────────────────── CSV ─────────────────────────
 os.makedirs(D_DESC, exist_ok=True)
@@ -196,7 +212,7 @@ csv_write("04_proyeccion_2026.csv", ["Mes", "Precipitacion media nacional (mm)"]
           [[p, round(v, 2)] for p, v in zip(PROY["meses"], PROY["media_nacional_mm"])])
 csv_write("05_resumen_etl.csv", ["Parametro", "Valor"],
           [["Fuente", "PISCOp v3.0 (SENAMHI) - archivo PISCOp_m.nc"],
-           ["Periodo", "1981-01 a 2025-12 (540 meses, 45 anios)"],
+           ["Periodo", f"1982-01 a 2025-12 ({R['meses']} meses, {ANIOS} anios)"],
            ["Resolucion", "0,1 grado (aprox. 10 km)"],
            ["Malla", f"{N_LAT} x {N_LON} = {N_CELDAS} celdas"],
            ["Malla total (celda-mes)", R["malla_total"]],
@@ -627,7 +643,7 @@ function seleccionar(nombre, ev) {
   if (ev) mostrarTooltip(ev, nombre, s);
   document.getElementById('info-nombre').textContent = nombre + ' · #' + s.rank + ' nacional';
   document.getElementById('info-region').textContent =
-    s.celdas.toLocaleString('es-PE') + ' celdas de la malla · 1981–2025';
+    s.celdas.toLocaleString('es-PE') + ' celdas de la malla · 1982–2025';
   document.getElementById('info-datos').innerHTML = `
     <div class="dato"><b>Precipitación media mensual</b><span>${fmtN(s.media_mensual)} <i>mm/mes</i></span></div>
     <div class="dato"><b>Mes más lluvioso</b><span>${MESES[s.mes_max - 1]} <i>${fmtN(s.mm_max_mes)} mm</i></span></div>
@@ -642,7 +658,7 @@ function seleccionar(nombre, ev) {
 function seleccionarNacional() {
   const n = DATOS.nac;
   document.getElementById('info-nombre').textContent = 'Perú';
-  document.getElementById('info-region').textContent = 'Resumen nacional · 1981–2025';
+  document.getElementById('info-region').textContent = 'Resumen nacional · 1982–2025';
   document.getElementById('info-datos').innerHTML = `
     <div class="dato"><b>Precipitación media mensual</b><span>${fmtN(n.media_mensual)} <i>mm/mes</i></span></div>
     <div class="dato"><b>Modelo ganador</b><span style="font-size:12.5px">${n.ganador} · RMSE ${fmtN(n.rmse)} mm</span></div>
@@ -694,7 +710,7 @@ PLANTILLA = """<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Comparación de algoritmos de regresión · Precipitación mensual en el Perú</title>
-<meta name="description" content="Comparación de algoritmos de regresión de aprendizaje supervisado para la predicción de la precipitación mensual en el Perú. PISCOp v3.0, 1981-2025.">
+<meta name="description" content="Comparación de algoritmos de regresión de aprendizaje supervisado para la predicción de la precipitación mensual en el Perú. PISCOp v3.0, 1982-2025.">
 <style>__CSS__</style>
 </head>
 <body>
@@ -723,7 +739,7 @@ PLANTILLA = """<!DOCTYPE html>
         <div><span>Autor</span><b>__AUTOR__</b></div>
         <div><span>Asesor</span><b>__ASESOR__</b></div>
         <div><span>Línea de investigación</span><span style="font-size:13.5px;letter-spacing:0;text-transform:none;color:#EEF4FA;font-weight:600;margin:0">__LINEA__</span></div>
-        <div><span>Fuente de datos</span><span style="font-size:13.5px;letter-spacing:0;text-transform:none;color:#EEF4FA;font-weight:600;margin:0">PISCOp v3.0 (SENAMHI) · 1981–2025 · 45 años</span></div>
+        <div><span>Fuente de datos</span><span style="font-size:13.5px;letter-spacing:0;text-transform:none;color:#EEF4FA;font-weight:600;margin:0">PISCOp v3.0 (SENAMHI) · 1982–2025 · __ANIOS__ años</span></div>
       </div>
       <p class="portada-lugar">LIMA ESTE – PERÚ · 2026</p>
     </div>
@@ -765,7 +781,7 @@ PLANTILLA = """<!DOCTYPE html>
 
     <div class="stats">
       <div class="stat"><b>__N_VALIDOS__</b><span>registros celda-mes válidos procesados</span></div>
-      <div class="stat"><b>__ANIOS__ años</b><span>de datos mensuales (1981–2025)</span></div>
+      <div class="stat"><b>__ANIOS__ años</b><span>de datos mensuales (1982–2025)</span></div>
       <div class="stat"><b>R² __R2__</b><span>coeficiente de determinación del modelo ganador</span></div>
       <div class="stat"><b>__ESTADO__</b><span>veredicto de los umbrales de aceptación</span></div>
     </div>
@@ -775,7 +791,7 @@ PLANTILLA = """<!DOCTYPE html>
       <p class="subtitulo">Toda la investigación se sustenta en este volumen de información real de la fuente PISCOp v3.0 (SENAMHI).</p>
       <div class="volumen">
         <div class="vol"><span>Fuente de datos</span><b>PISCOp v3.0 (SENAMHI)</b></div>
-        <div class="vol"><span>Periodo cubierto</span><b>1981 – 2025 (__ANIOS__ años)</b></div>
+        <div class="vol"><span>Periodo cubierto</span><b>1982 – 2025 (__ANIOS__ años)</b></div>
         <div class="vol"><span>Meses registrados</span><b>__MESES_N__ meses</b></div>
         <div class="vol"><span>Malla de observación</span><b>__MALLA_DIM__</b></div>
         <div class="vol"><span>Registros celda-mes</span><b>__MALLA__</b></div>
@@ -844,7 +860,7 @@ PLANTILLA = """<!DOCTYPE html>
 
     <div class="bloque">
       <h2 class="titulo">Climatología mensual por departamento</h2>
-      <p class="subtitulo">Precipitación media mensual en milímetros, promedio del periodo 1981–2025.</p>
+      <p class="subtitulo">Precipitación media mensual en milímetros, promedio del periodo 1982–2025.</p>
       <div class="envoltura"><table class="tabla">
         <tr><th>Departamento</th>__MESES_TH__</tr>
         __TABLA_CLIM__
@@ -960,7 +976,7 @@ PLANTILLA = """<!DOCTYPE html>
         <div class="figura"><img src="__IMG_ERROR__" alt="Distribución del error">
           <p>Distribución espacial del error de predicción (MAE) sobre la malla PISCOp.</p></div>
         <div class="figura"><img src="__IMG_HERO__" alt="Precipitación media observada">
-          <p>Precipitación media mensual observada sobre la malla PISCOp (1981–2025).</p></div>
+          <p>Precipitación media mensual observada sobre la malla PISCOp (1982–2025).</p></div>
       </div>
     </div>
 
@@ -998,11 +1014,12 @@ PLANTILLA = """<!DOCTYPE html>
         <div>
           <div class="etapa-tag">Etapa 1 de 5</div>
           <h3>Selección</h3>
-          <p class="desc">Se definió la fuente PISCOp v3.0 (SENAMHI) y el periodo 1981–2025, con 540
-          meses de precipitación en malla de 0,1° sobre el territorio nacional. Se formularon las
+          <p class="desc">Se definió la fuente PISCOp v3.0 (SENAMHI), que comprende los 540
+          meses de 1981 a 2025, y la muestra de modelado 1982–2025, con 528 meses de precipitación
+          en malla de 0,1° sobre el territorio nacional. Se formularon las
           preguntas de predicción y se eligieron los cuatro algoritmos de regresión supervisada.</p>
           <div class="cifras">
-            <div class="cifra"><span>Periodo</span><b>1981 – 2025</b></div>
+            <div class="cifra"><span>Periodo</span><b>1982 – 2025</b></div>
             <div class="cifra"><span>Meses registrados</span><b>__MESES_N__</b></div>
             <div class="cifra"><span>Resolución</span><b>0,1° ≈ 10 km</b></div>
           </div>
@@ -1109,7 +1126,9 @@ PLANTILLA = """<!DOCTYPE html>
         <p class="subtitulo" style="margin-bottom:0">El archivo fuente PISCOp_m.nc contiene 540 mapas
         mensuales de precipitación (uno por cada mes de enero de 1981 a diciembre de 2025) organizados en
         una malla de __MALLA_DIM__. Cada celda de la malla representa un área de aproximadamente 10 km
-        de lado. El proceso transformó esos mapas en __N_VALIDOS__ registros válidos de celda-mes,
+        de lado. La muestra de modelado abarcó los 528 meses de 1982 a 2025 —los meses de 1981 se
+        emplearon únicamente para construir los rezagos— y el proceso los transformó en
+        __N_VALIDOS__ registros válidos de celda-mes,
         los cuales alimentaron el entrenamiento de los algoritmos y la selección del modelo ganador
         que hoy sostiene la proyección de la precipitación de 2026 y el análisis regional por
         departamento.</p>

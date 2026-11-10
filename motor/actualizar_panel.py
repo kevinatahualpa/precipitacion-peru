@@ -12,7 +12,7 @@ FUENTE ÚNICA DE VERDAD
       wilcoxon_matrix_full.csv       p de Wilcoxon (config. full)
       features.parquet               conteos y min/máx de P
   TESIS-PRECIPITACION/05_PRODUCTO_ANEXOS/recalculo_espacial/salida_sitio.json
-      dominio (Perú), MAE por departamento y predicción 2026–2027 (normal climática)
+      dominio (Perú), MAE por departamento y predicción 2027 (normal climática)
       (generado por recalcular_espacial_final.py con controles aprobados)
 
 NADA SE ESCRIBE A MANO EN EL HTML: todos los números salen de los CSV/JSON.
@@ -24,6 +24,7 @@ Uso:  /tmp/opencode/venv/bin/python motor/actualizar_panel.py
 """
 import collections
 import csv
+import math
 import json
 import os
 import re
@@ -52,30 +53,39 @@ PANEL_DEPTS = ["Amazonas", "Apurímac", "Arequipa", "Ayacucho", "Cajamarca",
                "La Libertad", "Lambayeque", "Lima", "Loreto", "Madre de Dios",
                "Moquegua", "Pasco", "Piura", "Puno", "San Martín", "Tacna",
                "Tumbes", "Ucayali", "Áncash"]
-MAP_DEPT = {"Áncash": "Ancash"}
+# El CSV de origen rotula «Ancash» sin tilde y separa «Lima Province»
+# (22 celdas) del resto de Lima (268). Para el panel y la tabla 11.1 de la
+# tesis se consolidan en los 25 departamentos: Lima = 290 celdas.
+ALIAS = {"Ancash": "Áncash", "Lima Province": "Lima"}
 
 
 def _cargar_clim():
+    """μ(c,m) por departamento y nacional, ponderada por área (cos lat).
+
+    Cada celda pesa cos(lat) para corregir la reducción de área de la malla
+    regular con la latitud. Así el panel coincide con la tabla 11.1 de la
+    tesis, que también usa medias ponderadas por área.
+    """
     rows = list(csv.DictReader(open(CLIM_CSV, encoding="utf-8")))
     sums = collections.defaultdict(lambda: collections.defaultdict(float))
-    counts = collections.defaultdict(lambda: collections.defaultdict(int))
+    pesos = collections.defaultdict(lambda: collections.defaultdict(float))
     for r in rows:
-        d = r["departamento"]
+        d = ALIAS.get(r["departamento"], r["departamento"])
         m = int(r["mes"])
-        v = float(r["mu_mm"])
-        sums[d][m] += v
-        counts[d][m] += 1
+        w = math.cos(math.radians(float(r["lat"])))
+        sums[d][m] += float(r["mu_mm"]) * w
+        pesos[d][m] += w
     mensual = {}
     for d in PANEL_DEPTS:
-        src = MAP_DEPT.get(d, d)
-        mensual[d] = [round(sums[src][m] / counts[src][m], 2) for m in range(1, 13)]
+        mensual[d] = [round(sums[d][m] / pesos[d][m], 2) for m in range(1, 13)]
     ns = collections.defaultdict(float)
-    nc = collections.defaultdict(int)
+    nw = collections.defaultdict(float)
     for r in rows:
         m = int(r["mes"])
-        ns[m] += float(r["mu_mm"])
-        nc[m] += 1
-    nacional = [round(ns[m] / nc[m], 2) for m in range(1, 13)]
+        w = math.cos(math.radians(float(r["lat"])))
+        ns[m] += float(r["mu_mm"]) * w
+        nw[m] += w
+    nacional = [round(ns[m] / nw[m], 2) for m in range(1, 13)]
     return mensual, nacional
 
 
@@ -166,7 +176,7 @@ cab_nueva = f"""<!-- ═══════════════════�
        · baseline_persistencia.csv → línea base de referencia
        · dm_matrix_full.csv / wilcoxon_matrix_full.csv → significancia
        · preds_RF_full.npy        → error del ganador por celda y departamento
-       · precipitacion_2027_por_celda.csv → predicción 2026–2027 (normal climática)
+       · precipitacion_2027_por_celda.csv → predicción 2027 (normal climática)
        · 05_PRODUCTO_ANEXOS/recalculo_espacial/ → dominio y departamentos
          (controles aprobados: MAE {m['RF']['mae']:.4f} · RMSE {m['RF']['rmse']:.4f} · R² {m['RF']['r2']:.4f})
      ══════════════════════════════════════════════════════════════ -->"""
@@ -238,7 +248,7 @@ mod_nuevo = f"""  /* ── 5 · Algoritmos comparados (conjunto de prueba, conf
 reemplaza_patron(r"  /\* ── 5 · Algoritmos comparados[\s\S]*?\n  \],",
                  mod_nuevo, "bloque modelos")
 
-# ── E · predicción 2026–2027: normal climática mensual ──
+# ── E · predicción 2027: normal climática mensual ──
 def _js_mensual():
     lineas = ["const MENSUAL_CLIM = {"]
     for d in PANEL_DEPTS:
@@ -254,28 +264,26 @@ else:
     txt = txt.replace("const DATOS = {", mensual_js + "\n\nconst DATOS = {", 1)
 
 serie = "\n".join(f'      {{ mes: "{m}", mm: {v:.2f} }},' for m, v in zip(MESES, NACIONAL_CLIM))
-proy_block = f"""  /* ── 6 · Predicción nacional 2026–2027 (mm/mes) ──
+proy_block = f"""  /* ── 6 · Predicción nacional 2027 (mm/mes) ──
      Normal climática mensual (μ) de 1981–2014, calculada sobre las
-     10 665 celdas terrestres del Perú. 2026 y 2027 comparten el mismo
-     valor esperado porque el método no incorpora tendencia interanual. */
+     10 665 celdas terrestres del Perú. */
   proyeccion: {{
-    anio: "2026–2027",
+    anio: "2027",
     modelo: "la normal climática 1981–2014",
     serie: [
 {serie}
     ]
   }},
 
-  /* ── 6b · Predicción mensual por departamento (2026 y 2027) ──
-     Valores de μ(c,m) para cada departamento y mes. 2026 y 2027 son
-     idénticos porque usan la misma normal climática. */
-  mensual: {{ "2026": MENSUAL_CLIM, "2027": MENSUAL_CLIM }},
+  /* ── 6b · Predicción mensual por departamento (2027) ──
+     Valores de μ(c,m) para cada departamento y mes. */
+  mensual: {{ "2027": MENSUAL_CLIM }},
 
 """
-pat = re.compile(r"  /\* ── 6 · Predicción nacional 2026–2027[\s\S]*?\n  mensual: \{ \"2026\": MENSUAL_CLIM, \"2027\": MENSUAL_CLIM \},\n\n")
+pat = re.compile(r"  /\* ── 6 · Predicción nacional 20\d\d(?:–20\d\d)?[\s\S]*?\n  mensual: \{ \"20\d\d\": MENSUAL_CLIM \},\n\n")
 assert pat.search(txt), "bloque proyección no encontrado"
 txt = pat.sub(proy_block, txt, count=1)
-cambios.append("predicción 2026–2027 (climatología)")
+cambios.append("predicción 2027 (climatología)")
 
 # ── F · departamentos: comentario del bloque ──
 dep_com = """  /* ── 7 · Departamentos: precipitación media y geometría del mapa ──
@@ -285,7 +293,7 @@ dep_com = """  /* ── 7 · Departamentos: precipitación media y geometría d
         mmMes   : mm registrados en ese mes
         mae     : error absoluto medio del GANADOR, Random Forest (mm)
         celdas  : celdas PISCOp que lo componen
-        proy    : predicción 2026–2027 con la normal climática (mm/mes)
+        proy    : predicción 2027 con la normal climática (mm/mes, media ponderada por área)
         d       : contorno del departamento en coordenadas lon,lat (grados)   */"""
 reemplaza_patron(r"  /\* ── 7 · Departamentos[\s\S]*?\*/", dep_com,
                  "comentario departamentos")
@@ -345,7 +353,7 @@ z5_nuevo = f"""    reporte: {{
       conclusiones: [
         "Random Forest obtuvo el mejor desempeño en MAE, RMSE y R² ({es(g['mae'])} mm, {es(g['rmse'])} mm y {es(g['r2'], 3)}).",
         "Los 4 algoritmos superaron los umbrales de aceptación y la línea base de persistencia ({es(B_MAE)} mm).",
-        "La predicción 2026–2027 y el análisis regional de los 25 departamentos se calcularon con la normal climática 1981–2014."
+        "La predicción 2027 y el análisis regional de los 25 departamentos se calcularon con la normal climática 1981–2014."
       ],
       pie: "Datos: PISCOp v3.0 (SENAMHI) · 1982–2025 · 15 431 328 registros · cifras de la corrida final (12/12 experimentos)"
     }}"""
@@ -358,15 +366,15 @@ reemplaza_texto(
     "pie del panel")
 
 # ── L · prosa de la predicción: normal climática ──
-if "Precipitación media nacional esperada para 2026 y 2027" not in txt:
+if "Precipitación media nacional esperada para 2027" not in txt:
     reemplaza_texto(
         '''    $("#proy-intro").textContent = "Precipitación media nacional proyectada mes a mes para el año " +
       DATOS.proyeccion.anio + " con " + esc(DATOS.proyeccion.modelo ||
         ("el modelo ganador " + GANADOR.modelo)) + ".";''',
-        '''    $("#proy-intro").textContent = "Precipitación media nacional esperada para 2026 y 2027 con la normal climática 1981–2014.";''',
+        '''    $("#proy-intro").textContent = "Precipitación media nacional esperada para 2027 con la normal climática 1981–2014.";''',
         "proy-intro (climatología)")
 
-# ── M · tooltip del mapa (ya usa la predicción 2026–2027) ──
+# ── M · tooltip del mapa (ya usa la predicción 2027) ──
 # La ficha y el tooltip se actualizan desde DATOS.mensual; no requieren
 # reemplazos de texto aquí.
 
@@ -386,6 +394,17 @@ for nombre, val in DEP.items():
     assert k == 1, f"departamento no encontrado: {nombre}"
     n_dep += 1
 cambios.append(f"MAE por departamento ({n_dep} valores)")
+
+# predicción 2027 por departamento: proy = media de los 12 meses de μ(c,m)
+# ponderada por área, coherente con la tabla 11.1 de la tesis
+n_proy = 0
+for nombre in PANEL_DEPTS:
+    val = sum(MENSUAL_CLIM[nombre]) / 12
+    patron = re.compile(r'(\{ n:"' + re.escape(nombre) + r'", [^\n]*?proy:)[\d.]+')
+    txt, k = patron.subn(lambda mo: mo.group(1) + ("%.2f" % val), txt, count=1)
+    assert k == 1, f"proy no encontrado: {nombre}"
+    n_proy += 1
+cambios.append(f"predicción 2027 por departamento ({n_proy} valores)")
 
 open(PANEL, "w", encoding="utf-8").write(txt)
 print(f"· panel actualizado: {PANEL}")
@@ -413,7 +432,7 @@ assert len(deps) == 25, f"departamentos leídos: {len(deps)}"
 csv_write("01_departamentos.csv",
           ["Departamento", "Celdas", "Media mensual (mm)", "Media anual (mm)",
            "Mes mas lluvioso", "mm en ese mes", "MAE (mm)",
-           "Prediccion 2026-2027 media (mm/mes)"],
+           "Prediccion 2027 media (mm/mes)"],
           sorted([[n, celdas, mm, anual, mes, mmMes, mae, proy]
                   for n, mm, anual, mes, mmMes, mae, celdas, proy, _d in deps]))
 
@@ -426,10 +445,10 @@ csv_write("03_modelos_comparados.csv",
             round(m[k]["relmae"], 4), round(m[k]["relrmse"], 4)]
            for k in sorted(m, key=lambda k: m[k]["mae"])])
 
-# 04 · predicción 2026–2027 (normal climática nacional)
-csv_write("04_prediccion_2026_2027.csv",
+# 04 · predicción 2027 (normal climática nacional)
+csv_write("04_prediccion_2027.csv",
           ["Mes", "Precipitacion media nacional (mm)", "Periodo"],
-          [[m, round(v, 2), "2026 y 2027"] for m, v in zip(MESES, NACIONAL_CLIM)])
+          [[m, round(v, 2), "2027"] for m, v in zip(MESES, NACIONAL_CLIM)])
 
 # 05 · resumen ETL (periodo y conteos reales de features.parquet)
 P = pd.read_parquet(os.path.join(RESULTS, "features.parquet"), columns=["P"])["P"]
